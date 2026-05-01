@@ -27,17 +27,24 @@ class H264Decoder @Inject constructor(
         try {
             val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
             // Pixels are pre-rotated by the encoder, so we use 0 here.
-            format.setInteger(MediaFormat.KEY_ROTATION, 0) 
+            format.setInteger(MediaFormat.KEY_ROTATION, 0)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             }
 
-            mediaCodec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-            mediaCodec?.configure(format, surface, null, 0)
-            mediaCodec?.start()
-            Log.d("H264Decoder", "Decoder started: $width x $height")
+            val codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            try {
+                codec.configure(format, surface, null, 0)
+                codec.start()
+                mediaCodec = codec
+                Log.d("H264Decoder", "Decoder started: $width x $height")
+            } catch (e: Exception) {
+                codec.release()
+                throw e
+            }
         } catch (e: Exception) {
-            Log.e("H264Decoder", "Failed to start decoder", e)
+            Log.e("H264Decoder", "Failed to start decoder: ${e.message}")
+            mediaCodec = null
             return
         }
 
@@ -110,10 +117,19 @@ class H264Decoder @Inject constructor(
     fun stop() {
         decoderJob?.cancel()
         decoderJob = null
-        try {
-            mediaCodec?.stop()
-            mediaCodec?.release()
-        } catch (e: Exception) {}
+        mediaCodec?.let {
+            try {
+                it.stop()
+            } catch (e: Exception) {
+                Log.e("H264Decoder", "Error stopping codec: ${e.message}")
+            } finally {
+                try {
+                    it.release()
+                } catch (e: Exception) {
+                    Log.e("H264Decoder", "Error releasing codec: ${e.message}")
+                }
+            }
+        }
         mediaCodec = null
     }
 }

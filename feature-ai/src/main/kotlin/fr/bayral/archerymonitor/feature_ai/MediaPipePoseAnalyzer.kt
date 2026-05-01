@@ -26,6 +26,16 @@ class MediaPipePoseAnalyzer @Inject constructor(
     private val syncEngine: fr.bayral.archerymonitor.core.interfaces.ISyncEngine
 ) : IPoseAnalyzer {
 
+    companion object {
+        init {
+            try {
+                System.loadLibrary("mediapipe_tasks_vision_jni")
+            } catch (e: UnsatisfiedLinkError) {
+                Log.e("MediaPipePoseAnalyzer", "Failed to load mediapipe_tasks_vision_jni", e)
+            }
+        }
+    }
+
     private var poseLandmarker: PoseLandmarker? = null
     private val _poseResults = MutableStateFlow<PoseResult?>(null)
     override val poseResults: StateFlow<PoseResult?> = _poseResults
@@ -36,10 +46,19 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
     private fun setupPoseLandmarker() {
         try {
-            val baseOptions = BaseOptions.builder()
-                .setDelegate(Delegate.GPU) // Try GPU for better performance
+            val baseOptionsBuilder = BaseOptions.builder()
                 .setModelAssetPath("pose_landmarker_full.task")
-                .build()
+
+            // Try to use GPU if available, fallback to CPU
+            try {
+                baseOptionsBuilder.setDelegate(Delegate.GPU)
+                Log.d("MediaPipePoseAnalyzer", "Using GPU delegate")
+            } catch (e: Exception) {
+                baseOptionsBuilder.setDelegate(Delegate.CPU)
+                Log.w("MediaPipePoseAnalyzer", "GPU delegate not available, falling back to CPU", e)
+            }
+
+            val baseOptions = baseOptionsBuilder.build()
 
             val options = PoseLandmarker.PoseLandmarkerOptions.builder()
                 .setBaseOptions(baseOptions)
@@ -51,7 +70,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
             Log.d("MediaPipePoseAnalyzer", "PoseLandmarker initialized")
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e("MediaPipePoseAnalyzer", "Failed to initialize PoseLandmarker", e)
         }
     }

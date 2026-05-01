@@ -69,41 +69,31 @@ fun MainScreenContent(
             factory = { context ->
                 PreviewView(context).apply {
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                    // Ensure live preview isn't distorted
+                    scaleType = PreviewView.ScaleType.FIT_CENTER
                     this.surfaceProvider.also { surfaceProvider = it }
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
-        
+
         // 2. Delayed Playback Surface
         if (uiState.appState == AppState.RECORDING && uiState.delaySeconds > 0) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val screenWidth = maxWidth
-                val screenHeight = maxHeight
-                
-                // Use dynamic dimensions from state
-                val videoWidth = uiState.videoWidth.toFloat()
-                val videoHeight = uiState.videoHeight.toFloat()
-                
-                val screenRatio = screenHeight.value / screenWidth.value
-                val videoRatio = videoHeight / videoWidth
-                
-                val finalWidth: androidx.compose.ui.unit.Dp
-                val finalHeight: androidx.compose.ui.unit.Dp
-                
-                if (screenRatio > videoRatio) {
-                    finalHeight = screenHeight
-                    finalWidth = screenHeight / videoRatio
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                val ratio = if (uiState.videoWidth > 0 && uiState.videoHeight > 0) {
+                    uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
                 } else {
-                    finalWidth = screenWidth
-                    finalHeight = screenWidth * videoRatio
+                    9f / 16f
                 }
 
                 AndroidView(
                     factory = { context ->
                         SurfaceView(context).apply {
                             // This allows UI to be on top of video
-                            setZOrderMediaOverlay(true) 
+                            setZOrderMediaOverlay(true)
                             holder.addCallback(object : SurfaceHolder.Callback {
                                 override fun surfaceCreated(holder: SurfaceHolder) {
                                     onSurfaceCreated(holder.surface)
@@ -113,7 +103,7 @@ fun MainScreenContent(
                             })
                         }
                     },
-                    modifier = Modifier.size(finalWidth, finalHeight).align(Alignment.Center)
+                    modifier = Modifier.fillMaxSize().aspectRatio(ratio)
                 )
             }
 
@@ -166,8 +156,13 @@ fun MainScreenContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = { onToggleRecording() }) {
-                    Text(if (uiState.appState == AppState.RECORDING) "Stop" else "Record")
+                Button(
+                    onClick = { onToggleRecording() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (uiState.appState == AppState.RECORDING) Color.Red else MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(if (uiState.appState == AppState.RECORDING) "STOP" else "RECORD")
                 }
                 Button(onClick = { onToggleAi() }) {
                     Text(if (uiState.isAiEnabled) "AI On" else "AI Off")
