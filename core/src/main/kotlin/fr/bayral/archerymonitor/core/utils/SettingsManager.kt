@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import androidx.core.content.edit
 
 @Singleton
 class SettingsManager @Inject constructor(
@@ -20,9 +21,9 @@ class SettingsManager @Inject constructor(
 
     var recordingDelay: Float
         get() = prefs.getFloat(KEY_RECORDING_DELAY, DEFAULT_DELAY)
-        set(value) = prefs.edit().putFloat(KEY_RECORDING_DELAY, value).apply()
+        set(value) = prefs.edit { putFloat(KEY_RECORDING_DELAY, value)}
 
     var useFrontCamera: Boolean
         get() = prefs.getBoolean(KEY_USE_FRONT_CAMERA, false)
-        set(value) = prefs.edit().putBoolean(KEY_USE_FRONT_CAMERA, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_USE_FRONT_CAMERA, value) }
 }
