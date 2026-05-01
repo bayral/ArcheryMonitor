@@ -52,10 +52,13 @@ fun MainScreenContent(
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
 
     // Restart capture when camera changes
-    LaunchedEffect(uiState.useFrontCamera, surfaceProvider) {
+    DisposableEffect(uiState.useFrontCamera, surfaceProvider) {
         val sp = surfaceProvider
         if (sp != null) {
             onStartCapture(lifecycleOwner, sp)
+        }
+        onDispose {
+            onStopCapture()
         }
     }
 
