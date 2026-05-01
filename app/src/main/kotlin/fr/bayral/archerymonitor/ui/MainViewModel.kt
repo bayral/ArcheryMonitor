@@ -38,13 +38,30 @@ class MainViewModel @Inject constructor(
             onResolutionChanged = { w, h ->
                 _uiState.value = _uiState.value.copy(videoWidth = w, videoHeight = h)
                 // Restart decoder with new dimensions if already recording
-                currentSurface?.let { startDelayedPlayback(it) }
+                if (_uiState.value.appState == AppState.RECORDING) {
+                    currentSurface?.let { startDelayedPlayback(it) }
+                }
             },
             lowResAnalysis = { image ->
                 poseAnalyzer.analyze(image, System.nanoTime() / 1000)
             },
             useFrontCamera = _uiState.value.useFrontCamera
         )
+    }
+
+    fun toggleRecording() {
+        val newState = if (_uiState.value.appState == AppState.RECORDING) {
+            decoder.stop()
+            AppState.IDLE
+        } else {
+            AppState.RECORDING
+        }
+        _uiState.value = _uiState.value.copy(appState = newState)
+        
+        // If we just started recording, ensure decoder starts too
+        if (newState == AppState.RECORDING) {
+            currentSurface?.let { startDelayedPlayback(it) }
+        }
     }
 
     fun startDelayedPlayback(surface: android.view.Surface) {
@@ -58,9 +75,7 @@ class MainViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(delaySeconds = seconds)
         settingsManager.recordingDelay = seconds
         if (_uiState.value.appState == AppState.RECORDING) {
-            // Hot swap delay if already playing
-            // For now, we just restart decoder
-            // decoder.updateDelay(seconds) could be better
+            currentSurface?.let { startDelayedPlayback(it) }
         }
     }
 
@@ -72,6 +87,7 @@ class MainViewModel @Inject constructor(
         val newUseFront = !_uiState.value.useFrontCamera
         _uiState.value = _uiState.value.copy(useFrontCamera = newUseFront)
         settingsManager.useFrontCamera = newUseFront
+        // Capture will restart via LaunchedEffect in MainScreen
     }
 
     fun stopCapture() {
@@ -90,5 +106,7 @@ data class MainUiState(
     val delaySeconds: Float = 6f,
     val isAiEnabled: Boolean = true,
     val currentPose: PoseResult? = null,
-    val useFrontCamera: Boolean = false
+    val useFrontCamera: Boolean = false,
+    val videoWidth: Int = 720,
+    val videoHeight: Int = 1280
 )
