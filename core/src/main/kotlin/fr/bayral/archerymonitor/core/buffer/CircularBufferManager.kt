@@ -16,10 +16,10 @@ import javax.inject.Singleton
 
 @Singleton
 class CircularBufferManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
 ) : IBufferManager {
 
-    private val BUFFER_SIZE = 50 * 1024 * 1024L // 50MB
+    private val bufferSize = 50 * 1024 * 1024L // 50MB
     private val bufferFile = File(context.filesDir, "video_buffer.bin")
     private var mappedBuffer: MappedByteBuffer? = null
     private var fileChannel: FileChannel? = null
@@ -32,16 +32,16 @@ class CircularBufferManager @Inject constructor(
 
     private fun setupBuffer() {
         val raf = RandomAccessFile(bufferFile, "rw")
-        raf.setLength(BUFFER_SIZE)
+        raf.setLength(bufferSize)
         fileChannel = raf.channel
-        mappedBuffer = fileChannel?.map(FileChannel.MapMode.READ_WRITE, 0, BUFFER_SIZE)
+        mappedBuffer = fileChannel?.map(FileChannel.MapMode.READ_WRITE, 0, bufferSize)
     }
 
     override fun addPacket(data: ByteBuffer, info: MediaCodec.BufferInfo) {
         val buffer = mappedBuffer ?: return
 
         synchronized(this) {
-            if (buffer.position() + info.size > BUFFER_SIZE) {
+            if ((buffer.position() + info.size) > bufferSize) {
                 Log.d("CircularBufferManager", "Buffer wrap around! Clearing ${packets.size} packets.")
                 buffer.position(0)
                 packets.clear()
@@ -52,14 +52,16 @@ class CircularBufferManager @Inject constructor(
             data.limit(info.offset + info.size)
             buffer.put(data)
 
-            packets.add(PacketMeta(
-                offset = offset,
-                size = info.size,
-                presentationTimeUs = info.presentationTimeUs,
-                flags = info.flags
-            ))
-            
-            if (packets.size % 100 == 0) {
+            packets.add(
+                PacketMeta(
+                    offset = offset,
+                    size = info.size,
+                    presentationTimeUs = info.presentationTimeUs,
+                    flags = info.flags,
+                )
+            )
+
+            if ((packets.size % 100) == 0) {
                 Log.d("CircularBufferManager", "Status: ${packets.size} packets stored. Latest PTS: ${info.presentationTimeUs}")
             }
         }
@@ -85,11 +87,13 @@ class CircularBufferManager @Inject constructor(
                         set(0, meta.size, meta.presentationTimeUs, meta.flags)
                     }
 
-                    result.add(EncodedPacket(
-                        data = slice,
-                        info = info,
-                        isKeyFrame = (meta.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
-                    ))
+                    result.add(
+                        EncodedPacket(
+                            data = slice,
+                            info = info,
+                            isKeyFrame = (meta.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0,
+                        )
+                    )
                     mb.position(currentPos)
                 }
             }

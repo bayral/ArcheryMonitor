@@ -22,8 +22,8 @@ import javax.inject.Singleton
 
 @Singleton
 class MediaPipePoseAnalyzer @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val syncEngine: fr.bayral.archerymonitor.core.interfaces.ISyncEngine
+    @param:ApplicationContext private val context: Context,
+    private val syncEngine: fr.bayral.archerymonitor.core.interfaces.ISyncEngine,
 ) : IPoseAnalyzer {
 
     companion object {
@@ -94,9 +94,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
             val nv21 = ByteArray(ySize + uSize + vSize)
 
-            yBuffer.get(nv21, 0, ySize)
-            vBuffer.get(nv21, ySize, vSize)
-            uBuffer.get(nv21, ySize + vSize, uSize)
+            yBuffer[nv21, 0, ySize]
+            vBuffer[nv21, ySize, vSize]
+            uBuffer[nv21, ySize + vSize, uSize]
 
             val yuvImage = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, width, height, null)
             val out = java.io.ByteArrayOutputStream()

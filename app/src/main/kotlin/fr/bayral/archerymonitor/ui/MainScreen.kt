@@ -32,9 +32,10 @@ fun MainScreen(viewModel: MainViewModel) {
         onToggleRecording = { viewModel.toggleRecording() },
         onToggleAi = { viewModel.toggleAi() },
         onToggleCamera = { viewModel.toggleCamera() },
-        onSetDelay = { viewModel.setDelay(it) },
-        onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
-    )
+        onSetDelay = { viewModel.setDelay(it) }
+    ) {
+        viewModel.startDelayedPlayback(it)
+    }
 }
 
 @Composable
@@ -46,25 +47,25 @@ fun MainScreenContent(
     onToggleAi: () -> Unit,
     onToggleCamera: () -> Unit,
     onSetDelay: (Float) -> Unit,
-    onSurfaceCreated: (android.view.Surface) -> Unit = {}
+    onSurfaceCreated: (android.view.Surface) -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
 
     // Restart capture when camera changes
     DisposableEffect(uiState.useFrontCamera, surfaceProvider) {
-        val sp = surfaceProvider
-        if (sp != null) {
-            onStartCapture(lifecycleOwner, sp)
+        surfaceProvider?.let {
+            onStartCapture(lifecycleOwner, it)
         }
         onDispose {
             onStopCapture()
         }
     }
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
         // 1. Live Camera Preview (Always running in background)
         AndroidView(
@@ -80,12 +81,12 @@ fun MainScreenContent(
         )
 
         // 2. Delayed Playback Surface
-        if (uiState.appState == AppState.RECORDING && uiState.delaySeconds > 0) {
+        if ((uiState.appState == AppState.RECORDING) && (uiState.delaySeconds > 0)) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                val ratio = if (uiState.videoWidth > 0 && uiState.videoHeight > 0) {
+                val ratio = if ((uiState.videoWidth > 0) && (uiState.videoHeight > 0)) {
                     uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
                 } else {
                     9f / 16f
@@ -96,13 +97,15 @@ fun MainScreenContent(
                         SurfaceView(context).apply {
                             // This allows UI to be on top of video
                             setZOrderMediaOverlay(true)
-                            holder.addCallback(object : SurfaceHolder.Callback {
-                                override fun surfaceCreated(holder: SurfaceHolder) {
-                                    onSurfaceCreated(holder.surface)
+                            holder.addCallback(
+                                object : SurfaceHolder.Callback {
+                                    override fun surfaceCreated(holder: SurfaceHolder) {
+                                        onSurfaceCreated(holder.surface)
+                                    }
+                                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
+                                    override fun surfaceDestroyed(h: SurfaceHolder) {}
                                 }
-                                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
-                                override fun surfaceDestroyed(h: SurfaceHolder) {}
-                            })
+                            )
                         }
                     },
                     modifier = Modifier.fillMaxSize().aspectRatio(ratio)

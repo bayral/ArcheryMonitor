@@ -1,7 +1,6 @@
 package fr.bayral.archerymonitor.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.bayral.archerymonitor.core.interfaces.*
 import fr.bayral.archerymonitor.core.utils.SettingsManager
@@ -16,9 +15,8 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val cameraProvider: ICameraProvider,
     private val poseAnalyzer: IPoseAnalyzer,
-    private val syncEngine: ISyncEngine,
     private val settingsManager: SettingsManager,
-    private val decoder: H264Decoder
+    private val decoder: H264Decoder,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -57,7 +55,7 @@ class MainViewModel @Inject constructor(
             AppState.RECORDING
         }
         _uiState.value = _uiState.value.copy(appState = newState)
-        
+
         // If we just started recording, ensure decoder starts too
         if (newState == AppState.RECORDING) {
             currentSurface?.let { startDelayedPlayback(it) }

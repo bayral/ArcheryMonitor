@@ -5,7 +5,6 @@ import android.media.Image
 import android.os.SystemClock
 import android.util.Log
 import android.util.Size
-import android.view.Surface
 import androidx.annotation.OptIn
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -18,8 +17,8 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 
 class CameraXProvider @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val encoder: H264Encoder
+    @param:ApplicationContext private val context: Context,
+    private val encoder: H264Encoder,
 ) : ICameraProvider {
 
     private var cameraProvider: ProcessCameraProvider? = null
@@ -36,8 +35,9 @@ class CameraXProvider @Inject constructor(
         Log.d("CameraXProvider", "startCapture called. useFrontCamera=$useFrontCamera")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
-        cameraProviderFuture.addListener({
-            try {
+        cameraProviderFuture.addListener(
+            {
+                try {
                 cameraProvider = cameraProviderFuture.get()
 
                 // 1. UI Preview
@@ -58,7 +58,7 @@ class CameraXProvider @Inject constructor(
 
                 imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
                     val rotation = imageProxy.imageInfo.rotationDegrees
-                    val isPortrait = rotation == 90 || rotation == 270
+                    val isPortrait = (rotation == 90) || (rotation == 270)
                     val targetW = if (isPortrait) 720 else 1280
                     val targetH = if (isPortrait) 1280 else 720
 
@@ -77,7 +77,7 @@ class CameraXProvider @Inject constructor(
                         if (frameCount % 100 == 0) {
                             Log.d("CameraXProvider", "Analyzer: $frameCount frames. Rot: $rotation")
                         }
-                        
+
                         val ts = SystemClock.elapsedRealtimeNanos() / 1000
                         lowResAnalysis(image)
                         encoder.encodeImage(image, ts, useFrontCamera, rotation)

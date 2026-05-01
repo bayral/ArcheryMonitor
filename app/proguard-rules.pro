@@ -4,12 +4,14 @@
 # You can edit the include path and order by changing the proguardFiles
 # directive in build.gradle.kts.
 
-# Keep Hilt and Dagger classes
--keep class dagger.hilt.** { *; }
--keep class com.google.dagger.** { *; }
+# Keep annotations and inject members
+-keep class * extends java.lang.annotation.Annotation
+-keepclassmembers class * {
+    @dagger.hilt.android.lifecycle.HiltViewModel *;
+    @javax.inject.Inject *;
+}
 
-# Keep MediaPipe
--keep class com.google.mediapipe.** { *; }
-
-# Keep CameraX
--keep class androidx.camera.** { *; }
+# MediaPipe and CameraX usually provide their own rules in AAR.
+# We only add dontwarn for known issues or keep specific entry points if needed.
+-dontwarn com.google.mediapipe.**
+-dontwarn androidx.camera.**

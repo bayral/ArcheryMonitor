@@ -47,20 +47,19 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(
                         ContextCompat.checkSelfPermission(
                             context,
-                            Manifest.permission.CAMERA
+                            Manifest.permission.CAMERA,
                         ) == PackageManager.PERMISSION_GRANTED
                     )
                 }
 
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { granted ->
-                        hasCameraPermission = granted
-                        if (!granted) {
-                            Toast.makeText(context, "Permission caméra refusée", Toast.LENGTH_SHORT).show()
-                        }
+                ) { granted ->
+                    hasCameraPermission = granted
+                    if (!granted) {
+                        Toast.makeText(context, "Permission caméra refusée", Toast.LENGTH_SHORT).show()
                     }
-                )
+                }
 
                 LaunchedEffect(Unit) {
                     if (!hasCameraPermission) {
