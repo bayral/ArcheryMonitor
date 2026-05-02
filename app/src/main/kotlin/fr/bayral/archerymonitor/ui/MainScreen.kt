@@ -52,13 +52,17 @@ fun MainScreenContent(
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
 
-    // Restart capture when camera changes
-    DisposableEffect(uiState.useFrontCamera, surfaceProvider) {
+    // Start capture when both camera preference and surface provider are ready
+    LaunchedEffect(uiState.useFrontCamera, surfaceProvider, lifecycleOwner) {
         surfaceProvider?.let {
             onStartCapture(lifecycleOwner, it)
         }
+    }
+
+    DisposableEffect(Unit) {
         onDispose {
-            onStopCapture()
+            // Camera lifecycle is handled by the CameraProvider bound to the LifecycleOwner
+            // and the ViewModel onCleared().
         }
     }
 
