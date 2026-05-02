@@ -17,6 +17,7 @@ import fr.bayral.archerymonitor.core.interfaces.PoseResult
 import fr.bayral.archerymonitor.core.sync.SyncEngineImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.nio.ByteBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,9 +48,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setResultListener { result, _ ->
                     processResult(result, result.timestampMs())
                 }
-                .setMinPoseDetectionConfidence(0.7f) // Reduced slightly for better stability
-                .setMinPosePresenceConfidence(0.7f)
-                .setMinTrackingConfidence(0.7f)
+                .setMinPoseDetectionConfidence(0.6f) // Slightly more permissive for stability
+                .setMinPosePresenceConfidence(0.6f)
+                .setMinTrackingConfidence(0.6f)
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
@@ -73,9 +74,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setResultListener { result, _ ->
                     processResult(result, result.timestampMs())
                 }
-                .setMinPoseDetectionConfidence(0.7f)
-                .setMinPosePresenceConfidence(0.7f)
-                .setMinTrackingConfidence(0.7f)
+                .setMinPoseDetectionConfidence(0.6f)
+                .setMinPosePresenceConfidence(0.6f)
+                .setMinTrackingConfidence(0.6f)
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
@@ -86,32 +87,46 @@ class MediaPipePoseAnalyzer @Inject constructor(
     }
 
     override fun analyze(image: Image, timestamp: Long) {
-        try {
-            // timestamp is in us, MediaPipe needs ms
-            val bitmap = image.toBitmap() ?: return
-            val mpImage = BitmapImageBuilder(bitmap).build()
-            poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
-        } catch (e: Exception) {
-            Log.e("MediaPipePoseAnalyzer", "Analysis failed: ${e.message}")
-        }
+        val bitmap = image.toBitmap() ?: return
+        val mpImage = BitmapImageBuilder(bitmap).build()
+        poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
     }
 
     private fun Image.toBitmap(): Bitmap? {
-        // Robust and simple YUV to Bitmap conversion using Android's YuvImage
         try {
-            val yBuffer = planes[0].buffer
-            val uBuffer = planes[1].buffer
-            val vBuffer = planes[2].buffer
+            val width = width
+            val height = height
+            val yPlane = planes[0]
+            val uPlane = planes[1]
+            val vPlane = planes[2]
 
-            val ySize = yBuffer.remaining()
-            val uSize = uBuffer.remaining()
-            val vSize = vBuffer.remaining()
+            val yBuffer = yPlane.buffer
+            val uBuffer = uPlane.buffer
+            val vBuffer = vPlane.buffer
 
-            val nv21 = ByteArray(ySize + uSize + vSize)
+            val yStride = yPlane.rowStride
+            val uvStride = uPlane.rowStride
+            val uvPixelStride = uPlane.pixelStride
 
-            yBuffer.get(nv21, 0, ySize)
-            vBuffer.get(nv21, ySize, vSize)
-            uBuffer.get(nv21, ySize + vSize, uSize)
+            val nv21 = ByteArray(width * height * 3 / 2)
+            var idY = 0
+            var idUV = width * height
+
+            // MANDATORY for Pixel: Copy Y plane handling strides
+            for (y in 0 until height) {
+                yBuffer.position(y * yStride)
+                yBuffer.get(nv21, idY, width)
+                idY += width
+            }
+
+            // MANDATORY for Pixel: Copy UV planes handling strides
+            for (y in 0 until height / 2) {
+                for (x in 0 until width / 2) {
+                    val uvPos = y * uvStride + x * uvPixelStride
+                    nv21[idUV++] = vBuffer.get(uvPos)
+                    nv21[idUV++] = uBuffer.get(uvPos)
+                }
+            }
 
             val yuvImage = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, width, height, null)
             val out = java.io.ByteArrayOutputStream()
@@ -119,6 +134,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
             val imageBytes = out.toByteArray()
             return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
         } catch (e: Exception) {
+            Log.e("MediaPipePoseAnalyzer", "Bitmap conversion failed", e)
             return null
         }
     }
@@ -134,7 +150,6 @@ class MediaPipePoseAnalyzer @Inject constructor(
             return
         }
 
-        // Convert back to Us for SyncEngine
         val timestampUs = timestampMs * 1000
         
         val poseResult = PoseResult(
