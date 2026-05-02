@@ -76,8 +76,7 @@ fun MainScreenContent(
             factory = { context ->
                 PreviewView(context).apply {
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    // Ensure live preview isn't distorted
-                    scaleType = PreviewView.ScaleType.FIT_CENTER
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
                     this.surfaceProvider.also { surfaceProvider = it }
                 }
             },
@@ -86,35 +85,31 @@ fun MainScreenContent(
 
         // 2. Delayed Playback Surface
         if ((uiState.appState == AppState.RECORDING) && (uiState.delaySeconds > 0)) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val ratio = if ((uiState.videoWidth > 0) && (uiState.videoHeight > 0)) {
-                    uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
-                } else {
-                    9f / 16f
-                }
-
-                AndroidView(
-                    factory = { context ->
-                        SurfaceView(context).apply {
-                            // This allows UI to be on top of video
-                            setZOrderMediaOverlay(true)
-                            holder.addCallback(
-                                object : SurfaceHolder.Callback {
-                                    override fun surfaceCreated(holder: SurfaceHolder) {
-                                        onSurfaceCreated(holder.surface)
-                                    }
-                                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
-                                    override fun surfaceDestroyed(h: SurfaceHolder) {}
-                                }
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize().aspectRatio(ratio)
-                )
+            val ratio = if ((uiState.videoWidth > 0) && (uiState.videoHeight > 0)) {
+                uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
+            } else {
+                9f / 16f
             }
+
+            AndroidView(
+                factory = { context ->
+                    SurfaceView(context).apply {
+                        setZOrderMediaOverlay(true)
+                        holder.addCallback(
+                            object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    onSurfaceCreated(holder.surface)
+                                }
+                                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
+                                override fun surfaceDestroyed(h: SurfaceHolder) {}
+                            }
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .aspectRatio(ratio, matchHeightConstraintsFirst = true)
+            )
 
             // RED INDICATOR Overlay
             Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
@@ -177,7 +172,7 @@ fun MainScreenContent(
                     Text(if (uiState.isAiEnabled) "AI On" else "AI Off")
                 }
                 Button(onClick = { onToggleCamera() }) {
-                    Text(if (uiState.useFrontCamera) "Front" else "Back")
+                    Text(if (uiState.useFrontCamera) "Back" else "Front")
                 }
             }
         }
