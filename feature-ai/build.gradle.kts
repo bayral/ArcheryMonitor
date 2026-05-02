@@ -1,8 +1,8 @@
 plugins {
     id("com.android.library")
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-    kotlin("kapt")
 }
 
 android {
@@ -32,7 +32,7 @@ dependencies {
     implementation(libs.mediapipe.tasks.vision)
 
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
