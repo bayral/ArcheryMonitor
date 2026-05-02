@@ -49,8 +49,11 @@ class MainViewModel @Inject constructor(
     fun toggleRecording() {
         val newState = if (_uiState.value.appState == AppState.RECORDING) {
             decoder.stop()
+            cameraProvider.setRecording(false)
             AppState.IDLE
         } else {
+            cameraProvider.prepareRecording()
+            cameraProvider.setRecording(true)
             AppState.RECORDING
         }
         _uiState.value = _uiState.value.copy(appState = newState)

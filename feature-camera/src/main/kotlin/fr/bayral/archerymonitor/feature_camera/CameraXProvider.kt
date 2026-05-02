@@ -26,13 +26,30 @@ class CameraXProvider @Inject constructor(
     private var cameraProvider: ProcessCameraProvider? = null
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
+    private var isRecording = false
+    private var currentWidth = 0
+    private var currentHeight = 0
+
+    override fun setRecording(isRecording: Boolean) {
+        this.isRecording = isRecording
+        if (!isRecording) {
+            encoder.stop()
+        }
+    }
+
+    override fun prepareRecording() {
+        if (currentWidth > 0 && currentHeight > 0) {
+            encoder.prepare(currentWidth, currentHeight)
+        }
+    }
+
     @OptIn(ExperimentalGetImage::class)
     override fun startCapture(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         onResolutionChanged: (Int, Int) -> Unit,
         lowResAnalysis: (Image) -> Unit,
-        useFrontCamera: Boolean,
+        useFrontCamera: Boolean
     ) {
         Log.d("CameraXProvider", "startCapture called. useFrontCamera=$useFrontCamera")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -72,8 +89,6 @@ class CameraXProvider @Inject constructor(
                     )
                     .build()
 
-                var currentWidth = 0
-                var currentHeight = 0
                 var frameCount = 0
 
                 imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
@@ -87,10 +102,8 @@ class CameraXProvider @Inject constructor(
                         currentWidth = targetW
                         currentHeight = targetH
                         encoder.prepare(currentWidth, currentHeight)
-                        encoder.start()
-                        onResolutionChanged(currentWidth, currentHeight)
                     }
-
+                    
                     val image = imageProxy.image
                     if (image != null) {
                         frameCount++
@@ -100,7 +113,14 @@ class CameraXProvider @Inject constructor(
 
                         val ts = SystemClock.elapsedRealtimeNanos() / 1000
                         lowResAnalysis(image)
-                        encoder.encodeImage(image, ts, useFrontCamera, rotation)
+                        
+                        if (isRecording) {
+                            if (!encoder.isEncoding) {
+                                encoder.start()
+                                onResolutionChanged(currentWidth, currentHeight)
+                            }
+                            encoder.encodeImage(image, ts, useFrontCamera, rotation)
+                        }
                     }
                     imageProxy.close()
                 }

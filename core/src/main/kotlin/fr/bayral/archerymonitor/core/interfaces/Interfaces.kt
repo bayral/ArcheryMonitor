@@ -14,6 +14,8 @@ interface ICameraProvider {
         lowResAnalysis: (android.media.Image) -> Unit,
         useFrontCamera: Boolean
     )
+    fun setRecording(isRecording: Boolean)
+    fun prepareRecording()
     fun stopCapture()
 }
 

@@ -22,6 +22,8 @@ class H264Encoder @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Default)
 
     private val codecLock = Any()
+    var isEncoding = false
+        private set
     private var inputStride = 0
     private var inputSliceHeight = 0
 
@@ -82,6 +84,7 @@ class H264Encoder @Inject constructor(
         synchronized(codecLock) {
             try {
                 mediaCodec?.start()
+                isEncoding = true
             } catch (e: Exception) {
                 Log.e("H264Encoder", "Failed to start encoder: ${e.message}")
                 return
@@ -225,6 +228,7 @@ class H264Encoder @Inject constructor(
         encoderJob?.cancel()
         encoderJob = null
         synchronized(codecLock) {
+            isEncoding = false
             mediaCodec?.let {
                 try {
                     it.stop()
