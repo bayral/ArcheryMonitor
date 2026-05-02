@@ -32,12 +32,13 @@ class SyncEngineImpl @Inject constructor() : ISyncEngine {
      *
      * @param result The pose result containing landmarks and high-precision timestamp.
      */
-    fun addPoseResult(result: PoseResult) {
+    override fun addPoseResult(result: PoseResult) {
         synchronized(poseHistory) {
-            poseHistory[result.timestamp] = result
+            val ts = result.timestamp
+            poseHistory[ts] = result
 
             // Prune old entries to keep memory usage low while supporting max delay
-            val cutoff = result.timestamp - (MAX_HISTORY_MS * 1000)
+            val cutoff = ts - (MAX_HISTORY_MS * 1000)
             while (poseHistory.isNotEmpty() && poseHistory.firstKey() < cutoff) {
                 poseHistory.pollFirstEntry()
             }

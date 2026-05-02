@@ -224,6 +224,6 @@ class MediaPipePoseAnalyzer @Inject constructor(
         )
 
         _poseResults.value = poseResult
-        (syncEngine as? SyncEngineImpl)?.addPoseResult(poseResult)
+        syncEngine.addPoseResult(poseResult)
     }
 }
