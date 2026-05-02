@@ -56,5 +56,5 @@ data class Landmark(
 )
 
 enum class AppState {
-    IDLE, RECORDING
+    IDLE, RECORDING, BUFFERING
 }

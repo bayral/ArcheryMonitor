@@ -27,7 +27,7 @@ class H264Decoder @Inject constructor(
     private val _currentPlaybackTimestamp = MutableStateFlow(0L)
     val currentPlaybackTimestamp: StateFlow<Long> = _currentPlaybackTimestamp.asStateFlow()
 
-    fun start(surface: Surface, width: Int, height: Int, delaySeconds: Float) {
+    fun start(surface: Surface, width: Int, height: Int, delaySeconds: Float, onStarted: () -> Unit) {
         stop()
         Log.d("H264Decoder", "STARTING DECODER V3 - Delay: ${delaySeconds}s")
         try {
@@ -42,6 +42,7 @@ class H264Decoder @Inject constructor(
                 codec.configure(format, surface, null, 0)
                 codec.start()
                 mediaCodec = codec
+                onStarted()
                 Log.d("H264Decoder", "Decoder started: $width x $height")
             } catch (e: Exception) {
                 codec.release()
@@ -90,9 +91,6 @@ class H264Decoder @Inject constructor(
                                         packet.info.flags
                                     )
                                     lastQueuedPts = packet.info.presentationTimeUs
-                                    if (packet.isKeyFrame) {
-                                        Log.d("H264Decoder", "Queued KEYFRAME at PTS: ${packet.info.presentationTimeUs}")
-                                    }
                                 }
                             }
                         } catch (e: Exception) {
@@ -106,7 +104,6 @@ class H264Decoder @Inject constructor(
                     while (outputBufferIndex >= 0) {
                         codec.releaseOutputBuffer(outputBufferIndex, true)
                         _currentPlaybackTimestamp.value = info.presentationTimeUs
-                        Log.d("H264Decoder", "[REPLAY] PIXELS ENVOYÉS A L'ÉCRAN ! PTS: ${info.presentationTimeUs}")
                         outputBufferIndex = codec.dequeueOutputBuffer(info, 0)
                     }
                 } catch (e: Exception) {
@@ -114,7 +111,6 @@ class H264Decoder @Inject constructor(
                         Log.e("H264Decoder", "Dequeuing error: ${e.message}")
                     }
                 }
-
                 delay(10)
             }
         }

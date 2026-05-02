@@ -48,9 +48,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setResultListener { result, _ ->
                     processResult(result, System.nanoTime() / 1000)
                 }
-                .setMinPoseDetectionConfidence(0.5f)
-                .setMinPosePresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
+                .setMinPoseDetectionConfidence(0.8f)
+                .setMinPosePresenceConfidence(0.8f)
+                .setMinTrackingConfidence(0.8f)
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
@@ -74,6 +74,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setResultListener { result, _ ->
                     processResult(result, System.nanoTime() / 1000)
                 }
+                .setMinPoseDetectionConfidence(0.8f)
+                .setMinPosePresenceConfidence(0.8f)
+                .setMinTrackingConfidence(0.8f)
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)

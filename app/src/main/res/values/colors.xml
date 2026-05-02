@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#2B2B2B</color>
-    <color name="target_white">#F5F5F5</color>
+    <color name="ic_launcher_background">#121212</color>
+    <color name="target_white">#FFFFFF</color>
     <color name="target_black">#2D2D2D</color>
     <color name="target_blue">#5C9CE6</color>
     <color name="target_red">#E85A4F</color>
     <color name="target_yellow">#F2C14E</color>
-    <color name="target_divider">#1A000000</color>
+    <color name="target_divider">#40000000</color>
     <color name="target_divider_white">#40FFFFFF</color>
 </resources>

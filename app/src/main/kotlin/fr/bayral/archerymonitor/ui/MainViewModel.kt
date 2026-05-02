@@ -12,6 +12,8 @@ import javax.inject.Inject
 
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
@@ -35,7 +37,7 @@ class MainViewModel @Inject constructor(
         // Collect decoder timestamp and sync pose
         decoder.currentPlaybackTimestamp
             .onEach { pts ->
-                if (_uiState.value.appState == AppState.RECORDING) {
+                if (_uiState.value.appState != AppState.IDLE) {
                     val syncedPose = syncEngine.getSyncPose(pts)
                     _uiState.value = _uiState.value.copy(currentPose = syncedPose)
                 }
@@ -46,13 +48,21 @@ class MainViewModel @Inject constructor(
     private var currentSurface: android.view.Surface? = null
 
     fun onStartCapture(lifecycleOwner: androidx.lifecycle.LifecycleOwner, surfaceProvider: androidx.camera.core.Preview.SurfaceProvider) {
+        // If we were recording before pause, we must return to BUFFERING 
+        // because the capture session and its cache have been cleared.
+        if (_uiState.value.appState == AppState.RECORDING) {
+            _uiState.value = _uiState.value.copy(appState = AppState.BUFFERING)
+            cameraProvider.prepareRecording()
+            cameraProvider.setRecording(true)
+        }
+
         cameraProvider.startCapture(
             lifecycleOwner = lifecycleOwner,
             surfaceProvider = surfaceProvider,
             onResolutionChanged = { w, h ->
                 _uiState.value = _uiState.value.copy(videoWidth = w, videoHeight = h)
-                // Restart decoder with new dimensions if already recording
-                if (_uiState.value.appState == AppState.RECORDING) {
+                // Restart decoder with new dimensions if recording/buffering
+                if (_uiState.value.appState != AppState.IDLE) {
                     currentSurface?.let { startDelayedPlayback(it) }
                 }
             },
@@ -61,30 +71,48 @@ class MainViewModel @Inject constructor(
             },
             useFrontCamera = _uiState.value.useFrontCamera
         )
+
+        // Ensure playback surface is re-bound to decoder if we are in a recording state
+        if (_uiState.value.appState != AppState.IDLE) {
+            currentSurface?.let { startDelayedPlayback(it) }
+        }
     }
 
     fun toggleRecording() {
-        val newState = if (_uiState.value.appState == AppState.RECORDING) {
+        val newState = if (_uiState.value.appState != AppState.IDLE) {
             decoder.stop()
             cameraProvider.setRecording(false)
             AppState.IDLE
         } else {
             cameraProvider.prepareRecording()
             cameraProvider.setRecording(true)
-            AppState.RECORDING
+            AppState.BUFFERING
         }
         _uiState.value = _uiState.value.copy(appState = newState)
 
         // If we just started recording, ensure decoder starts too
-        if (newState == AppState.RECORDING) {
+        if (newState == AppState.BUFFERING) {
             currentSurface?.let { startDelayedPlayback(it) }
         }
     }
-
+    
+    // Call this from the decoder when it effectively starts playing
+    fun onDecoderStarted() {
+        if (_uiState.value.appState == AppState.BUFFERING) {
+            viewModelScope.launch {
+                // Buffer for the delay configured or at least 500ms for UX stability
+                val waitTime = (_uiState.value.delaySeconds * 1000).toLong().coerceAtLeast(500L)
+                delay(waitTime)
+                _uiState.value = _uiState.value.copy(appState = AppState.RECORDING)
+            }
+        }
+    }
     fun startDelayedPlayback(surface: android.view.Surface) {
         currentSurface = surface
-        if (_uiState.value.appState == AppState.RECORDING) {
-            decoder.start(surface, _uiState.value.videoWidth, _uiState.value.videoHeight, _uiState.value.delaySeconds)
+        if (_uiState.value.appState == AppState.RECORDING || _uiState.value.appState == AppState.BUFFERING) {
+            decoder.start(surface, _uiState.value.videoWidth, _uiState.value.videoHeight, _uiState.value.delaySeconds) {
+                onDecoderStarted()
+            }
         }
     }
 

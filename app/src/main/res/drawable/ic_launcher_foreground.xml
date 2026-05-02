@@ -9,12 +9,12 @@
     <path
         android:fillColor="@color/target_white"
         android:strokeColor="@color/target_divider"
-        android:strokeWidth="0.5"
+        android:strokeWidth="1.0"
         android:pathData="M50,50m-45,0a45,45 0,1 1,90 0a45,45 0,1 1,-90 0"/>
     <path
         android:fillColor="@color/target_white"
         android:strokeColor="@color/target_divider"
-        android:strokeWidth="0.5"
+        android:strokeWidth="1.0"
         android:pathData="M50,50m-40.5,0a40.5,40.5 0,1 1,81 0a40.5,40.5 0,1 1,-81 0"/>
 
     <!-- Black Rings (3 & 4) -->

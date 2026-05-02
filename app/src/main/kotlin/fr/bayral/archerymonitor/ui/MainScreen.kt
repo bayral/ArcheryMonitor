@@ -51,7 +51,7 @@ fun MainScreenContent(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
-    
+
     // Add lifecycle observer to restart capture on RESUME if it was lost
     DisposableEffect(lifecycleOwner, surfaceProvider) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -101,13 +101,13 @@ fun MainScreenContent(
         )
 
         // 2. Delayed Playback Surface
-        if ((uiState.appState == AppState.RECORDING) && (uiState.delaySeconds > 0)) {
+        if ((uiState.appState == AppState.RECORDING || uiState.appState == AppState.BUFFERING) && (uiState.delaySeconds > 0)) {
             val ratio = if ((uiState.videoWidth > 0) && (uiState.videoHeight > 0)) {
                 uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
             } else {
                 9f / 16f
             }
-            
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -150,10 +150,21 @@ fun MainScreenContent(
                     )
                 }
             }
+        }
 
-            // RED INDICATOR Overlay
-            Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
+        // RED INDICATOR Overlay (Visible whenever buffering or recording)
+        Box(modifier = Modifier.fillMaxSize().padding(top = 80.dp, start = 32.dp), contentAlignment = Alignment.TopStart) {
+            if (uiState.appState == AppState.BUFFERING) {
+                Text("● BUFFERING...", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
+            } else if (uiState.appState == AppState.RECORDING) {
                 Text("● RECORDING / REPLAY", color = Color.Red, style = MaterialTheme.typography.headlineMedium)
+            }
+        }
+
+        // BUFFERING PROGRESS
+        if (uiState.appState == AppState.BUFFERING) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
             }
         }
 
@@ -187,13 +198,13 @@ fun MainScreenContent(
                 Button(
                     onClick = { onToggleRecording() },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (uiState.appState == AppState.RECORDING) Color.Red else MaterialTheme.colorScheme.primary
+                        containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Text(if (uiState.appState == AppState.RECORDING) "STOP" else "RECORD")
+                    Text(if (uiState.appState != AppState.IDLE) "STOP" else "RECORD")
                 }
                 Button(onClick = { onToggleAi() }) {
-                    Text(if (uiState.isAiEnabled) "AI On" else "AI Off")
+                    Text(if (uiState.isAiEnabled) "AI Off" else "AI On")
                 }
                 Button(onClick = { onToggleCamera() }) {
                     Text(if (uiState.useFrontCamera) "Back" else "Front")
