@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Archery Monitor</string>
+    <string name="status_buffering">● CARICAMENTO…</string>
+    <string name="status_recording">● DIFFERITA / REPLAY</string>
+    <string name="label_delay">Ritardo: %1$ds</string>
+    <string name="btn_stop">STOP</string>
+    <string name="btn_record">AVVIA</string>
+    <string name="btn_ai_off">Disattiva IA</string>
+    <string name="btn_ai_on">Attiva IA</string>
+    <string name="btn_camera_back">Posteriore</string>
+    <string name="btn_camera_front">Frontale</string>
+</resources>
