@@ -17,24 +17,50 @@ import fr.bayral.archerymonitor.core.interfaces.PoseResult
 import fr.bayral.archerymonitor.core.sync.SyncEngineImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.nio.ByteBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Implementation of [IPoseAnalyzer] using Google's MediaPipe Pose Landmarker.
+ *
+ * This class handles the conversion of raw camera frames into AI-compatible formats,
+ * triggers asynchronous pose detection, and broadcasts the results via a [StateFlow].
+ *
+ * ## Technical Constraints & Stabilizations:
+ * - **Stride Handling:** Modern Android devices (like Google Pixel) often have YUV plane strides
+ *   larger than the image width. This implementation manually copies pixels line-by-line in
+ *   [toBitmap] to avoid image skewing.
+ * - **Clock Synchronization:** To ensure AI skeletons are correctly anchored to delayed video frames,
+ *   this class uses a unified timestamp (microseconds) shared with the video encoder.
+ * - **Error Recovery:** Automatically falls back from GPU to CPU delegate if hardware acceleration
+ *   fails during initialization.
+ *
+ * @property context The application context required by MediaPipe.
+ * @property syncEngine The engine used to store and retrieve pose results based on timestamps.
+ */
 @Singleton
 class MediaPipePoseAnalyzer @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val syncEngine: fr.bayral.archerymonitor.core.interfaces.ISyncEngine,
 ) : IPoseAnalyzer, AutoCloseable {
 
+    /** Internal reference to the MediaPipe PoseLandmarker instance. */
     private var poseLandmarker: PoseLandmarker? = null
+
+    /** Backing property for [poseResults] flow. */
     private val _poseResults = MutableStateFlow<PoseResult?>(null)
+
+    /** [StateFlow] emitting the latest detected pose result. */
     override val poseResults: StateFlow<PoseResult?> = _poseResults
 
     init {
         setupPoseLandmarker()
     }
 
+    /**
+     * Initializes the Pose Landmarker with GPU acceleration.
+     * Falls back to [setupPoseLandmarkerCpu] on failure.
+     */
     private fun setupPoseLandmarker() {
         try {
             val baseOptions = BaseOptions.builder()
@@ -46,9 +72,10 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setBaseOptions(baseOptions)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result, _ ->
+                    // AI-Video Anchoring: use the frame's original timestampMs.
                     processResult(result, result.timestampMs())
                 }
-                .setMinPoseDetectionConfidence(0.6f) // Slightly more permissive for stability
+                .setMinPoseDetectionConfidence(0.6f) 
                 .setMinPosePresenceConfidence(0.6f)
                 .setMinTrackingConfidence(0.6f)
                 .build()
@@ -61,6 +88,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
         }
     }
 
+    /**
+     * Initializes the Pose Landmarker using CPU processing as a fallback.
+     */
     private fun setupPoseLandmarkerCpu() {
         try {
             val baseOptions = BaseOptions.builder()
@@ -86,12 +116,31 @@ class MediaPipePoseAnalyzer @Inject constructor(
         }
     }
 
+    /**
+     * Analyzes a camera frame for human poses.
+     *
+     * @param image The raw [Image] from CameraX (usually YUV_420_888).
+     * @param timestamp The system clock timestamp in microseconds (us) to associate with this frame.
+     */
     override fun analyze(image: Image, timestamp: Long) {
-        val bitmap = image.toBitmap() ?: return
-        val mpImage = BitmapImageBuilder(bitmap).build()
-        poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
+        try {
+            // MediaPipe detectAsync expects milliseconds (ms).
+            val bitmap = image.toBitmap() ?: return
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
+        } catch (e: Exception) {
+            Log.e("MediaPipePoseAnalyzer", "Analysis failed: ${e.message}")
+        }
     }
 
+    /**
+     * Converts a YUV [Image] into a [Bitmap] while strictly respecting row strides.
+     *
+     * This method handles the potential gap between pixel data and row width in the YUV buffer,
+     * ensuring that the resulting image isn't skewed or corrupted on devices like Pixel 7.
+     *
+     * @return A [Bitmap] containing the frame pixels, or null if conversion fails.
+     */
     private fun Image.toBitmap(): Bitmap? {
         try {
             val width = width
@@ -112,14 +161,14 @@ class MediaPipePoseAnalyzer @Inject constructor(
             var idY = 0
             var idUV = width * height
 
-            // MANDATORY for Pixel: Copy Y plane handling strides
+            // Copy Y plane handling potential padding (strides)
             for (y in 0 until height) {
                 yBuffer.position(y * yStride)
                 yBuffer.get(nv21, idY, width)
                 idY += width
             }
 
-            // MANDATORY for Pixel: Copy UV planes handling strides
+            // Copy interleaved UV planes handling strides
             for (y in 0 until height / 2) {
                 for (x in 0 until width / 2) {
                     val uvPos = y * uvStride + x * uvPixelStride
@@ -139,17 +188,29 @@ class MediaPipePoseAnalyzer @Inject constructor(
         }
     }
 
+    /**
+     * Closes the MediaPipe instance and releases resources.
+     */
     override fun close() {
         poseLandmarker?.close()
         poseLandmarker = null
     }
 
+    /**
+     * Internal callback for MediaPipe results.
+     *
+     * Processes raw landmarks, converts them to [PoseResult], and feeds the [syncEngine].
+     *
+     * @param result The raw result from MediaPipe.
+     * @param timestampMs The timestamp (ms) originally passed to [PoseLandmarker.detectAsync].
+     */
     private fun processResult(result: PoseLandmarkerResult, timestampMs: Long) {
         if (result.landmarks().isEmpty()) {
             _poseResults.value = null
             return
         }
 
+        // Convert back to microseconds (us) for high-precision SyncEngine matching.
         val timestampUs = timestampMs * 1000
         
         val poseResult = PoseResult(

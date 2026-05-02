@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Archery Monitor</string>
+    <string name="status_buffering">● BUFFERING…</string>
+    <string name="status_recording">● RECORDING / REPLAY</string>
+    <string name="label_delay">Delay: %1$ds</string>
+    <string name="btn_stop">STOP</string>
+    <string name="btn_record">RECORD</string>
+    <string name="btn_ai_off">Turn AI OFF</string>
+    <string name="btn_ai_on">Turn AI ON</string>
+    <string name="btn_camera_back">Back</string>
+    <string name="btn_camera_front">Front</string>
 </resources>

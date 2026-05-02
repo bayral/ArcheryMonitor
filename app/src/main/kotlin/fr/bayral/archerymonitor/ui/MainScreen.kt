@@ -18,6 +18,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.res.stringResource
+import fr.bayral.archerymonitor.R
 import fr.bayral.archerymonitor.core.interfaces.AppState
 import fr.bayral.archerymonitor.core.utils.MatrixUtils
 import fr.bayral.archerymonitor.ui.components.SkeletonOverlay
@@ -56,6 +58,8 @@ fun MainScreenContent(
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
     
+    // CHALLENGE: Lifecycle and Surface abandonment.
+    // Releasing CameraX and Decoders on PAUSE is mandatory to avoid "BufferQueue abandoned" errors.
     DisposableEffect(lifecycleOwner, surfaceProvider) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
@@ -102,9 +106,14 @@ fun MainScreenContent(
                 val contentW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
                 val contentH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
                 
-                // Use requiredSize to force FILL_CENTER and bypass parent constraints
+                /**
+                 * CHALLENGE: Video Deformation on ultra-wide screens (Pixel 7).
+                 * Standard aspectRatio() can squash the video to fit the constraints.
+                 * SOLUTION: Use requiredSize() to force the correct ratio even if it 
+                 * exceeds screen bounds, achieving a perfect, undistorted FILL_CENTER.
+                 */
                 val modifier = if (boxSize != IntSize.Zero && contentW > 0 && contentH > 0) {
-                    val scale = Math.max(
+                    val scale = maxOf(
                         boxSize.width.toFloat() / contentW,
                         boxSize.height.toFloat() / contentH
                     )
@@ -130,7 +139,7 @@ fun MainScreenContent(
                     modifier = modifier
                 )
 
-                // 3. AI Overlay (Stays aligned with the Box, which is the visible screen)
+                // 3. AI Overlay
                 if (uiState.isAiEnabled && boxSize != IntSize.Zero && contentW > 0) {
                     val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.videoRotation, uiState.useFrontCamera, boxSize) {
                         MatrixUtils.getTransformationMatrix(
@@ -154,9 +163,17 @@ fun MainScreenContent(
         // Overlay Status
         Box(modifier = Modifier.fillMaxSize().padding(top = 80.dp, start = 32.dp), contentAlignment = Alignment.TopStart) {
             if (uiState.appState == AppState.BUFFERING) {
-                Text("● BUFFERING...", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    stringResource(R.string.status_buffering),
+                    color = MaterialTheme.colorScheme.primary, 
+                    style = MaterialTheme.typography.headlineMedium
+                )
             } else if (uiState.appState == AppState.RECORDING) {
-                Text("● RECORDING / REPLAY", color = Color.Red, style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    stringResource(R.string.status_recording),
+                    color = Color.Red, 
+                    style = MaterialTheme.typography.headlineMedium
+                )
             }
         }
 
@@ -166,7 +183,7 @@ fun MainScreenContent(
             }
         }
 
-        // Controls
+        // 4. Controls
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -177,7 +194,11 @@ fun MainScreenContent(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "Delay: ${uiState.delaySeconds.toInt()}s", color = Color.White, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(R.string.label_delay, uiState.delaySeconds.toInt()),
+                color = Color.White, 
+                style = MaterialTheme.typography.bodyLarge
+            )
             Slider(
                 value = uiState.delaySeconds,
                 onValueChange = { onSetDelay(it) },
@@ -190,13 +211,13 @@ fun MainScreenContent(
                     onClick = { onToggleRecording() },
                     colors = ButtonDefaults.buttonColors(containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(if (uiState.appState != AppState.IDLE) "STOP" else "RECORD")
+                    Text(if (uiState.appState != AppState.IDLE) stringResource(R.string.btn_stop) else stringResource(R.string.btn_record))
                 }
                 Button(onClick = { onToggleAi() }) {
-                    Text(if (uiState.isAiEnabled) "Turn AI OFF" else "Turn AI ON")
+                    Text(if (uiState.isAiEnabled) stringResource(R.string.btn_ai_off) else stringResource(R.string.btn_ai_on))
                 }
                 Button(onClick = { onToggleCamera() }) {
-                    Text(if (uiState.useFrontCamera) "Back" else "Front")
+                    Text(if (uiState.useFrontCamera) stringResource(R.string.btn_camera_back) else stringResource(R.string.btn_camera_front))
                 }
             }
         }
