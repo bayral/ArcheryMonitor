@@ -8,7 +8,6 @@ import fr.bayral.archerymonitor.feature_camera.H264Decoder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,7 +21,7 @@ class MainViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(
         MainUiState(
             delaySeconds = settingsManager.recordingDelay,
-            useFrontCamera = settingsManager.useFrontCamera
+            useFrontCamera = settingsManager.useFrontCamera,
         )
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()

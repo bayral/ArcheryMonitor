@@ -24,17 +24,7 @@ import javax.inject.Singleton
 class MediaPipePoseAnalyzer @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val syncEngine: fr.bayral.archerymonitor.core.interfaces.ISyncEngine,
-) : IPoseAnalyzer {
-
-    companion object {
-        init {
-            try {
-                System.loadLibrary("mediapipe_tasks_vision_jni")
-            } catch (e: UnsatisfiedLinkError) {
-                Log.e("MediaPipePoseAnalyzer", "Failed to load mediapipe_tasks_vision_jni", e)
-            }
-        }
-    }
+) : IPoseAnalyzer, AutoCloseable {
 
     private var poseLandmarker: PoseLandmarker? = null
     private val _poseResults = MutableStateFlow<PoseResult?>(null)
@@ -48,17 +38,35 @@ class MediaPipePoseAnalyzer @Inject constructor(
         try {
             val baseOptionsBuilder = BaseOptions.builder()
                 .setModelAssetPath("pose_landmarker_full.task")
-
-            // Try to use GPU if available, fallback to CPU
-            try {
-                baseOptionsBuilder.setDelegate(Delegate.GPU)
-                Log.d("MediaPipePoseAnalyzer", "Using GPU delegate")
-            } catch (e: Exception) {
-                baseOptionsBuilder.setDelegate(Delegate.CPU)
-                Log.w("MediaPipePoseAnalyzer", "GPU delegate not available, falling back to CPU", e)
-            }
+                .setDelegate(Delegate.GPU)
 
             val baseOptions = baseOptionsBuilder.build()
+
+            val options = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(baseOptions)
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setResultListener { result, _ ->
+                    processResult(result, System.nanoTime() / 1000)
+                }
+                .setMinPoseDetectionConfidence(0.5f)
+                .setMinPosePresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
+                .build()
+
+            poseLandmarker = PoseLandmarker.createFromOptions(context, options)
+            Log.d("MediaPipePoseAnalyzer", "PoseLandmarker initialized with GPU")
+        } catch (e: Exception) {
+            Log.w("MediaPipePoseAnalyzer", "GPU initialization failed, falling back to CPU", e)
+            setupPoseLandmarkerCpu()
+        }
+    }
+
+    private fun setupPoseLandmarkerCpu() {
+        try {
+            val baseOptions = BaseOptions.builder()
+                .setModelAssetPath("pose_landmarker_full.task")
+                .setDelegate(Delegate.CPU)
+                .build()
 
             val options = PoseLandmarker.PoseLandmarkerOptions.builder()
                 .setBaseOptions(baseOptions)
@@ -69,9 +77,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
-            Log.d("MediaPipePoseAnalyzer", "PoseLandmarker initialized")
-        } catch (e: Throwable) {
-            Log.e("MediaPipePoseAnalyzer", "Failed to initialize PoseLandmarker", e)
+            Log.d("MediaPipePoseAnalyzer", "PoseLandmarker initialized with CPU")
+        } catch (e: Exception) {
+            Log.e("MediaPipePoseAnalyzer", "Failed to initialize PoseLandmarker with CPU", e)
         }
     }
 
@@ -109,6 +117,11 @@ class MediaPipePoseAnalyzer @Inject constructor(
         }
     }
 
+    override fun close() {
+        poseLandmarker?.close()
+        poseLandmarker = null
+    }
+
     private fun processResult(result: PoseLandmarkerResult, timestampUs: Long) {
         if (result.landmarks().isEmpty()) {
             _poseResults.value = null
@@ -122,7 +135,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
             worldLandmarks = result.worldLandmarks()[0].map {
                 Landmark(it.x(), it.y(), it.z(), it.visibility().orElse(0f), it.presence().orElse(0f))
             },
-            timestamp = timestampUs
+            timestamp = timestampUs,
         )
 
         _poseResults.value = poseResult

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "fr.bayral.archerymonitor.feature_camera"
-    compileSdk = 35
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         minSdk = 26
@@ -34,6 +34,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.video)
     implementation(libs.androidx.camera.view)
+
+    implementation(libs.guava)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

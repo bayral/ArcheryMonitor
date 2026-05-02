@@ -7,6 +7,8 @@ import android.util.Log
 import android.util.Size
 import androidx.annotation.OptIn
 import androidx.camera.core.*
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -30,7 +32,7 @@ class CameraXProvider @Inject constructor(
         surfaceProvider: Preview.SurfaceProvider,
         onResolutionChanged: (Int, Int) -> Unit,
         lowResAnalysis: (Image) -> Unit,
-        useFrontCamera: Boolean
+        useFrontCamera: Boolean,
     ) {
         Log.d("CameraXProvider", "startCapture called. useFrontCamera=$useFrontCamera")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -42,14 +44,32 @@ class CameraXProvider @Inject constructor(
 
                 // 1. UI Preview
                 val preview = Preview.Builder()
-                    .setTargetResolution(Size(720, 1280))
+                    .setResolutionSelector(
+                        ResolutionSelector.Builder()
+                            .setResolutionStrategy(
+                                ResolutionStrategy(
+                                    Size(720, 1280),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                )
+                            )
+                            .build()
+                    )
                     .build()
-                preview.setSurfaceProvider(surfaceProvider)
+                preview.surfaceProvider = surfaceProvider
 
                 // 2. ImageAnalysis (Combined AI and Encoding)
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setTargetResolution(Size(1280, 720))
+                    .setResolutionSelector(
+                        ResolutionSelector.Builder()
+                            .setResolutionStrategy(
+                                ResolutionStrategy(
+                                    Size(1280, 720),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                )
+                            )
+                            .build()
+                    )
                     .build()
 
                 var currentWidth = 0
@@ -63,7 +83,7 @@ class CameraXProvider @Inject constructor(
                     val targetH = if (isPortrait) 1280 else 720
 
                     // Re-prepare encoder if dimensions change (e.g. rotation)
-                    if (targetW != currentWidth || targetH != currentHeight) {
+                    if ((targetW != currentWidth) || (targetH != currentHeight)) {
                         currentWidth = targetW
                         currentHeight = targetH
                         encoder.prepare(currentWidth, currentHeight)
@@ -105,7 +125,9 @@ class CameraXProvider @Inject constructor(
                 Log.e("CameraXProvider", "Camera binding failed", exc)
             }
 
-        }, ContextCompat.getMainExecutor(context))
+        },
+            ContextCompat.getMainExecutor(context)
+        )
     }
 
     override fun stopCapture() {

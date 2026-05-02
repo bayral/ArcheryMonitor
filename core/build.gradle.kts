@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "fr.bayral.archerymonitor.core"
-    compileSdk = 35
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         minSdk = 26

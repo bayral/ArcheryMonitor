@@ -58,7 +58,7 @@ class CircularBufferManager @Inject constructor(
                     size = info.size,
                     presentationTimeUs = info.presentationTimeUs,
                     flags = info.flags,
-                )
+                ),
             )
 
             if ((packets.size % 100) == 0) {
@@ -70,7 +70,7 @@ class CircularBufferManager @Inject constructor(
     override fun getPacketsForRange(startTimeUs: Long, endTimeUs: Long): List<EncodedPacket> {
         val result = mutableListOf<EncodedPacket>()
         val matchingMetas = synchronized(this) {
-            packets.filter { it.presentationTimeUs in startTimeUs..endTimeUs }
+            packets.filter { (it.presentationTimeUs in startTimeUs..endTimeUs) }
         }
 
         if (matchingMetas.isEmpty()) return emptyList()
@@ -92,7 +92,7 @@ class CircularBufferManager @Inject constructor(
                             data = slice,
                             info = info,
                             isKeyFrame = (meta.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0,
-                        )
+                        ),
                     )
                     mb.position(currentPos)
                 }
