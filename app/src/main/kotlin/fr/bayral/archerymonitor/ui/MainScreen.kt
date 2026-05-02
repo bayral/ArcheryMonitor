@@ -51,6 +51,23 @@ fun MainScreenContent(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
+    
+    // Add lifecycle observer to restart capture on RESUME if it was lost
+    DisposableEffect(lifecycleOwner, surfaceProvider) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
+                    onStopCapture()
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    surfaceProvider?.let { onStartCapture(lifecycleOwner, it) }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Start capture when both camera preference and surface provider are ready
     LaunchedEffect(uiState.useFrontCamera, surfaceProvider, lifecycleOwner) {
@@ -90,47 +107,54 @@ fun MainScreenContent(
             } else {
                 9f / 16f
             }
-
-            AndroidView(
-                factory = { context ->
-                    SurfaceView(context).apply {
-                        setZOrderMediaOverlay(true)
-                        holder.addCallback(
-                            object : SurfaceHolder.Callback {
-                                override fun surfaceCreated(holder: SurfaceHolder) {
-                                    onSurfaceCreated(holder.surface)
-                                }
-                                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
-                                override fun surfaceDestroyed(h: SurfaceHolder) {}
-                            }
-                        )
-                    }
-                },
+            
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .aspectRatio(ratio, matchHeightConstraintsFirst = true)
-            )
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center
+            ) {
+                AndroidView(
+                    factory = { context ->
+                        SurfaceView(context).apply {
+                            setZOrderMediaOverlay(true)
+                            holder.addCallback(
+                                object : SurfaceHolder.Callback {
+                                    override fun surfaceCreated(holder: SurfaceHolder) {
+                                        onSurfaceCreated(holder.surface)
+                                    }
+                                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
+                                    override fun surfaceDestroyed(h: SurfaceHolder) {}
+                                }
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // 3. AI Overlay (Linked to playback Box for same scaling)
+                if (uiState.isAiEnabled) {
+                    val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.useFrontCamera) {
+                        MatrixUtils.getTransformationMatrix(
+                            viewWidth = uiState.videoWidth,
+                            viewHeight = uiState.videoHeight,
+                            rotationDegrees = 90,
+                            isMirrored = uiState.useFrontCamera
+                        )
+                    }
+                    SkeletonOverlay(
+                        poseResult = uiState.currentPose,
+                        transformationMatrix = matrix,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
 
             // RED INDICATOR Overlay
             Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
                 Text("● RECORDING / REPLAY", color = Color.Red, style = MaterialTheme.typography.headlineMedium)
             }
-        }
-
-        // 3. AI Overlay
-        if (uiState.isAiEnabled) {
-            val matrix = remember {
-                MatrixUtils.getTransformationMatrix(
-                    viewWidth = 1080,
-                    viewHeight = 1920,
-                    rotationDegrees = 90,
-                    isMirrored = uiState.useFrontCamera
-                )
-            }
-            SkeletonOverlay(
-                poseResult = uiState.currentPose,
-                transformationMatrix = matrix
-            )
         }
 
         // 4. Controls

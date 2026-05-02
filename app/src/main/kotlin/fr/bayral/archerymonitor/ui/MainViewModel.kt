@@ -10,10 +10,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import androidx.lifecycle.viewModelScope
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val cameraProvider: ICameraProvider,
     private val poseAnalyzer: IPoseAnalyzer,
+    private val syncEngine: ISyncEngine,
     private val settingsManager: SettingsManager,
     private val decoder: H264Decoder,
 ) : ViewModel() {
@@ -25,6 +30,18 @@ class MainViewModel @Inject constructor(
         ),
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    init {
+        // Collect decoder timestamp and sync pose
+        decoder.currentPlaybackTimestamp
+            .onEach { pts ->
+                if (_uiState.value.appState == AppState.RECORDING) {
+                    val syncedPose = syncEngine.getSyncPose(pts)
+                    _uiState.value = _uiState.value.copy(currentPose = syncedPose)
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 
     private var currentSurface: android.view.Surface? = null
 
