@@ -19,45 +19,38 @@ object MatrixUtils {
     ): Matrix {
         val matrix = Matrix()
 
-        // 1. Map 0..1 to -0.5..0.5 (to rotate/mirror around center)
+        // 1. Map 0..1 to -0.5..0.5 to rotate around center
         matrix.postTranslate(-0.5f, -0.5f)
 
-        // 2. Mirror if needed (Front Camera)
+        // 2. Rotate FIRST to get the image upright
+        matrix.postRotate(rotationDegrees.toFloat())
+
+        // 3. Mirror AFTER rotation if needed (Front Camera)
+        // This ensures a horizontal flip in the UI coordinate space
         if (isMirrored) {
             matrix.postScale(-1f, 1f)
         }
 
-        // 3. Rotate (Sensor rotation)
-        matrix.postRotate(rotationDegrees.toFloat())
-
         // 4. Map back to 0..1
         matrix.postTranslate(0.5f, 0.5f)
 
-        // 5. Scale to Display Space (accounting for FILL_CENTER zoom)
+        // 5. Scale and Crop (FILL_CENTER)
         
-        // Dimensions of the content AFTER rotation
+        // Dimensions after rotation
         val isPortrait = (rotationDegrees == 90 || rotationDegrees == 270)
         val contentW = if (isPortrait) srcHeight else srcWidth
         val contentH = if (isPortrait) srcWidth else srcHeight
 
-        // Calculate the scale used for FILL_CENTER
         val scale = Math.max(
             viewWidth.toFloat() / contentW,
             viewHeight.toFloat() / contentH
         )
 
-        // Scale to actual pixel size of the content
-        matrix.postScale(contentW.toFloat(), contentH.toFloat())
-        
-        // Apply the FILL_CENTER zoom factor
-        matrix.postScale(scale, scale)
+        matrix.postScale(contentW.toFloat() * scale, contentH.toFloat() * scale)
 
-        // 6. Centering (Offset calculation for cropping)
-        val finalContentW = contentW * scale
-        val finalContentH = contentH * scale
-        val offsetX = (viewWidth - finalContentW) / 2f
-        val offsetY = (viewHeight - finalContentH) / 2f
-        
+        // 6. Centering
+        val offsetX = (viewWidth - (contentW * scale)) / 2f
+        val offsetY = (viewHeight - (contentH * scale)) / 2f
         matrix.postTranslate(offsetX, offsetY)
 
         return matrix

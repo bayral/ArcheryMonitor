@@ -75,7 +75,9 @@ class MainViewModel @Inject constructor(
                 }
             },
             lowResAnalysis = { image, timestamp ->
-                poseAnalyzer.analyze(image, timestamp)
+                if (_uiState.value.isAiEnabled && _uiState.value.appState != AppState.IDLE) {
+                    poseAnalyzer.analyze(image, timestamp)
+                }
             },
             useFrontCamera = _uiState.value.useFrontCamera
         )
