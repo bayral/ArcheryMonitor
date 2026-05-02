@@ -50,6 +50,13 @@ android {
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            freeCompilerArgs.addAll(
+                "-opt-in=androidx.camera.core.ExperimentalGetImage",
+                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+                "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+                "-opt-in=androidx.camera.extensions.ExperimentalExtensionApi",
+                "-opt-in=androidx.camera.camera2.interop.ExperimentalCamera2Interop"
+            )
         }
     }
     buildFeatures {
@@ -60,11 +67,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    bundle {
+    /* bundle {
         language {
             enableSplit = false
         }
-    }
+    } */
 }
 
 dependencies {
@@ -74,6 +81,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

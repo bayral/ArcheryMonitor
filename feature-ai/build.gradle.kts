@@ -21,6 +21,11 @@ android {
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            freeCompilerArgs.addAll(
+                "-opt-in=androidx.camera.core.ExperimentalGetImage",
+                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+                "-opt-in=androidx.camera.camera2.interop.ExperimentalCamera2Interop"
+            )
         }
     }
 }
