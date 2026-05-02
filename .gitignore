@@ -30,3 +30,6 @@ local.properties
 
 # MediaPipe model (usually too large to commit)
 app/src/main/assets/*.task
+
+.gemini/
+gha-creds-*.json
