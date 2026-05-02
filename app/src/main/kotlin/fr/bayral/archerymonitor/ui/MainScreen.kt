@@ -193,7 +193,7 @@ fun MainScreenContent(
                     Text(if (uiState.appState != AppState.IDLE) "STOP" else "RECORD")
                 }
                 Button(onClick = { onToggleAi() }) {
-                    Text(if (uiState.isAiEnabled) "AI Off" else "AI On")
+                    Text(if (uiState.isAiEnabled) "Turn AI OFF" else "Turn AI ON")
                 }
                 Button(onClick = { onToggleCamera() }) {
                     Text(if (uiState.useFrontCamera) "Back" else "Front")

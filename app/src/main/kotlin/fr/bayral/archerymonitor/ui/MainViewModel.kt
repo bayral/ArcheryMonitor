@@ -37,10 +37,13 @@ class MainViewModel @Inject constructor(
         // Collect decoder timestamp and sync pose
         decoder.currentPlaybackTimestamp
             .onEach { pts ->
-                // Allow sync during BUFFERING too so we see it as soon as pixels arrive
-                if (_uiState.value.appState != AppState.IDLE) {
+                // Only sync if AI is enabled and we are not IDLE
+                if (_uiState.value.isAiEnabled && _uiState.value.appState != AppState.IDLE) {
                     val syncedPose = syncEngine.getSyncPose(pts)
                     _uiState.value = _uiState.value.copy(currentPose = syncedPose)
+                } else if (!_uiState.value.isAiEnabled && _uiState.value.currentPose != null) {
+                    // Clear if AI is toggled OFF
+                    _uiState.value = _uiState.value.copy(currentPose = null)
                 }
             }
             .launchIn(viewModelScope)
@@ -143,7 +146,14 @@ class MainViewModel @Inject constructor(
     }
 
     fun toggleAi() {
-        _uiState.value = _uiState.value.copy(isAiEnabled = !_uiState.value.isAiEnabled)
+        val newAiEnabled = !_uiState.value.isAiEnabled
+        if (newAiEnabled) {
+            syncEngine.clear()
+        }
+        _uiState.value = _uiState.value.copy(
+            isAiEnabled = newAiEnabled,
+            currentPose = null // Force clear UI skeleton immediately
+        )
     }
 
     fun toggleCamera() {

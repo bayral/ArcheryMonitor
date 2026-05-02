@@ -16,16 +16,10 @@ class SyncEngineImpl @Inject constructor() : ISyncEngine {
         synchronized(poseHistory) {
             poseHistory[result.timestamp] = result
 
-            // Prune old entries
-            val cutoff = result.timestamp - (MAX_HISTORY_MS * 1000) // timestamps in us
-            val iterator = poseHistory.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
-                if (entry.key < cutoff) {
-                    iterator.remove()
-                } else {
-                    break // TreeMap is sorted, so we can stop
-                }
+            // Prune old entries (keep slightly more than 30s)
+            val cutoff = result.timestamp - (MAX_HISTORY_MS * 1000)
+            while (poseHistory.isNotEmpty() && poseHistory.firstKey() < cutoff) {
+                poseHistory.pollFirstEntry()
             }
         }
     }
@@ -34,27 +28,36 @@ class SyncEngineImpl @Inject constructor() : ISyncEngine {
         synchronized(poseHistory) {
             if (poseHistory.isEmpty()) return null
 
+            // Find the closest point in the past and future relative to the video frame
             val floor = poseHistory.floorEntry(videoTimestamp)
             val ceil = poseHistory.ceilingEntry(videoTimestamp)
 
-            // Find the closest entry
-            val bestEntry = when {
-                floor == null -> ceil
-                ceil == null -> floor
-                else -> if (videoTimestamp - floor.key < ceil.key - videoTimestamp) floor else ceil
-            }
+            // Calculate exact distances
+            val distFloor = floor?.let { abs(it.key - videoTimestamp) } ?: Long.MAX_VALUE
+            val distCeil = ceil?.let { abs(it.key - videoTimestamp) } ?: Long.MAX_VALUE
 
-            // Relaxed jitter tolerance (500ms) to avoid blinking
-            return if (abs(bestEntry.key - videoTimestamp) < MAX_JITTER_US) {
-                bestEntry.value
+            // Pick the absolute closest
+            val closest = if (distFloor < distCeil) floor else ceil
+
+            // VALIDATION: We only return the pose if it's within our precision window (500ms).
+            // If the closest pose is too far (e.g. from the present while we want the past),
+            // we return null to avoid "teleporting" skeletons.
+            return if (closest != null && abs(closest.key - videoTimestamp) < MAX_JITTER_US) {
+                closest.value
             } else {
                 null
             }
         }
     }
 
+    override fun clear() {
+        synchronized(poseHistory) {
+            poseHistory.clear()
+        }
+    }
+
     companion object {
-        private const val MAX_HISTORY_MS = 31000L // Keep slightly more than 30s
-        private const val MAX_JITTER_US = 500_000L // 500ms tolerance for sync
+        private const val MAX_HISTORY_MS = 35000L // Keep 35s of history
+        private const val MAX_JITTER_US = 1_000_000L // 1 second max tolerance
     }
 }

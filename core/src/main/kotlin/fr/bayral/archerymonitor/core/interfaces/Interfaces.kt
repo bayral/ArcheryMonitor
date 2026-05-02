@@ -39,6 +39,7 @@ interface IPoseAnalyzer {
 
 interface ISyncEngine {
     fun getSyncPose(videoTimestamp: Long): PoseResult?
+    fun clear()
 }
 
 data class PoseResult(
