@@ -22,7 +22,7 @@ class MainViewModel @Inject constructor(
         MainUiState(
             delaySeconds = settingsManager.recordingDelay,
             useFrontCamera = settingsManager.useFrontCamera,
-        )
+        ),
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 

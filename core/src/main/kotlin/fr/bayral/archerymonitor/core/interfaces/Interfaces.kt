@@ -1,7 +1,6 @@
 package fr.bayral.archerymonitor.core.interfaces
 
 import android.media.MediaCodec
-import android.view.Surface
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.ByteBuffer
 
@@ -9,10 +8,10 @@ import androidx.lifecycle.LifecycleOwner
 
 interface ICameraProvider {
     fun startCapture(
-        lifecycleOwner: LifecycleOwner, 
-        surfaceProvider: androidx.camera.core.Preview.SurfaceProvider, 
+        lifecycleOwner: LifecycleOwner,
+        surfaceProvider: androidx.camera.core.Preview.SurfaceProvider,
         onResolutionChanged: (Int, Int) -> Unit = { _, _ -> },
-        lowResAnalysis: (android.media.Image) -> Unit, 
+        lowResAnalysis: (android.media.Image) -> Unit,
         useFrontCamera: Boolean
     )
     fun stopCapture()
@@ -55,5 +54,5 @@ data class Landmark(
 )
 
 enum class AppState {
-    IDLE, RECORDING, ANALYZING
+    IDLE, RECORDING
 }

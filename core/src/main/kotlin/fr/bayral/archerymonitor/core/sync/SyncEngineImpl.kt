@@ -10,14 +10,13 @@ import javax.inject.Singleton
 class SyncEngineImpl @Inject constructor() : ISyncEngine {
 
     private val poseHistory = TreeMap<Long, PoseResult>()
-    private val MAXHISTORYMS = 31000L // Keep slightly more than 30s
 
     fun addPoseResult(result: PoseResult) {
         synchronized(poseHistory) {
             poseHistory[result.timestamp] = result
 
             // Prune old entries
-            val cutoff = result.timestamp - (MAXHISTORYMS * 1000) // timestamps in us
+            val cutoff = result.timestamp - (MAX_HISTORY_MS * 1000) // timestamps in us
             val iterator = poseHistory.iterator()
             while (iterator.hasNext()) {
                 val entry = iterator.next()
@@ -39,7 +38,7 @@ class SyncEngineImpl @Inject constructor() : ISyncEngine {
 
             return when {
                 floor == null -> ceil?.value
-                ceil == null -> floor?.value
+                ceil == null -> floor.value
                 else -> {
                     // Return the one closest to the requested timestamp
                     if (videoTimestamp - floor.key < ceil.key - videoTimestamp) {
@@ -50,5 +49,9 @@ class SyncEngineImpl @Inject constructor() : ISyncEngine {
                 }
             }
         }
+    }
+
+    companion object {
+        private const val MAX_HISTORY_MS = 31000L // Keep slightly more than 30s
     }
 }

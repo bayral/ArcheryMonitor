@@ -32,7 +32,7 @@ fun MainScreen(viewModel: MainViewModel) {
         onToggleRecording = { viewModel.toggleRecording() },
         onToggleAi = { viewModel.toggleAi() },
         onToggleCamera = { viewModel.toggleCamera() },
-        onSetDelay = { viewModel.setDelay(it) }
+        onSetDelay = { viewModel.setDelay(it) },
     ) {
         viewModel.startDelayedPlayback(it)
     }

@@ -49,10 +49,10 @@ class CameraXProvider @Inject constructor(
                             .setResolutionStrategy(
                                 ResolutionStrategy(
                                     Size(720, 1280),
-                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
-                                )
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                ),
                             )
-                            .build()
+                            .build(),
                     )
                     .build()
                 preview.surfaceProvider = surfaceProvider
@@ -65,8 +65,8 @@ class CameraXProvider @Inject constructor(
                             .setResolutionStrategy(
                                 ResolutionStrategy(
                                     Size(1280, 720),
-                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
-                                )
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                ),
                             )
                             .build()
                     )
@@ -94,7 +94,7 @@ class CameraXProvider @Inject constructor(
                     val image = imageProxy.image
                     if (image != null) {
                         frameCount++
-                        if (frameCount % 100 == 0) {
+                        if ((frameCount % 100) == 0) {
                             Log.d("CameraXProvider", "Analyzer: $frameCount frames. Rot: $rotation")
                         }
 

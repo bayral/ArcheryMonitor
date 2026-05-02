@@ -1,7 +1,9 @@
 [versions]
 agp = "9.2.0"
 kotlin = "2.3.21"
+#noinspection UnusedSymbol
 compileSdk = "37"
+#noinspection UnusedSymbol
 targetSdk = "37"
 coreKtx = "1.18.0"
 junit = "4.13.2"

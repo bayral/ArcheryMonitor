@@ -7,16 +7,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import fr.bayral.archerymonitor.core.interfaces.Landmark
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
 
 @Composable
 fun SkeletonOverlay(
     poseResult: PoseResult?,
     transformationMatrix: Matrix,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (poseResult == null) return
 
@@ -24,7 +21,7 @@ fun SkeletonOverlay(
         val mappedPoints = FloatArray(poseResult.landmarks.size * 2)
         poseResult.landmarks.forEachIndexed { index, landmark ->
             mappedPoints[index * 2] = landmark.x
-            mappedPoints[index * 2 + 1] = landmark.y
+            mappedPoints[(index * 2) + 1] = landmark.y
         }
 
         transformationMatrix.mapPoints(mappedPoints)

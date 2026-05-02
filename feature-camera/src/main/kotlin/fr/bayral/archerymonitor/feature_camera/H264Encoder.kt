@@ -5,7 +5,6 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.util.Log
-import android.view.Surface
 import fr.bayral.archerymonitor.core.interfaces.IBufferManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +15,7 @@ import java.nio.ByteBuffer
 import javax.inject.Inject
 
 class H264Encoder @Inject constructor(
-    private val bufferManager: IBufferManager
+    private val bufferManager: IBufferManager,
 ) {
     private var mediaCodec: MediaCodec? = null
     private var encoderJob: Job? = null
@@ -38,11 +37,11 @@ class H264Encoder @Inject constructor(
                     val capabilities = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                     val supportedColorFormats = capabilities?.colorFormats ?: intArrayOf()
                     val colorFormat = when {
-                        supportedColorFormats.contains(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible) ->
+                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible in supportedColorFormats ->
                             MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
-                        supportedColorFormats.contains(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar) ->
+                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar in supportedColorFormats ->
                             MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
-                        supportedColorFormats.contains(MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar) ->
+                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar in supportedColorFormats ->
                             MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
                         else -> supportedColorFormats.firstOrNull() ?: MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
                     }
@@ -55,7 +54,7 @@ class H264Encoder @Inject constructor(
 
                     // Validate if the device supports the requested dimensions
                     val videoCapabilities = capabilities?.videoCapabilities
-                    if (videoCapabilities != null && !videoCapabilities.isSizeSupported(width, height)) {
+                    if ((videoCapabilities != null) && !videoCapabilities.isSizeSupported(width, height)) {
                         Log.e("H264Encoder", "Size $width x $height is not supported by this encoder")
                         throw IllegalArgumentException("Size $width x $height is not supported")
                     }
@@ -95,13 +94,12 @@ class H264Encoder @Inject constructor(
                 try {
                     val outputBufferIndex = codec.dequeueOutputBuffer(info, 10000)
                     if (outputBufferIndex >= 0) {
-                        val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
-                        if (outputBuffer != null) {
+                        codec.getOutputBuffer(outputBufferIndex)?.let { outputBuffer ->
                             bufferManager.addPacket(outputBuffer, info)
                         }
                         codec.releaseOutputBuffer(outputBufferIndex, false)
                     }
-                } catch (e: Exception) { break }
+                } catch (_: Exception) { break }
             }
         }
     }
@@ -131,7 +129,7 @@ class H264Encoder @Inject constructor(
         val planes = image.planes
 
         // Output dimensions depend on rotation
-        val isPortraitOutput = rotation == 90 || rotation == 270
+        val isPortraitOutput = (rotation == 90) || (rotation == 270)
         val dstW = if (isPortraitOutput) srcH else srcW
         val dstH = if (isPortraitOutput) srcW else srcH
         val stride = if (inputStride > 0) inputStride else dstW
@@ -174,8 +172,8 @@ class H264Encoder @Inject constructor(
                     finalX = currentW - 1 - finalX
                 }
 
-                if (finalY * stride + finalX < dst.capacity()) {
-                    dst.put(finalY * stride + finalX, yBuf.get(y * yRowStride + x))
+                if ((finalY * stride + finalX) < dst.capacity()) {
+                    dst.put(finalY * stride + finalX, yBuf[y * yRowStride + x])
                 }
             }
         }
@@ -211,8 +209,8 @@ class H264Encoder @Inject constructor(
                     finalX = currentW - 1 - finalX
                 }
 
-                val uValue = uBuf.get(y * uvRowStride + x * uvPixelStride)
-                val vValue = vBuf.get(y * uvRowStride + x * uvPixelStride)
+                val uValue = uBuf[y * uvRowStride + x * uvPixelStride]
+                val vValue = vBuf[y * uvRowStride + x * uvPixelStride]
 
                 val pos = uvOffset + (finalY * stride) + (finalX * 2)
                 if (pos + 1 < dst.capacity()) {

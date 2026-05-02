@@ -1,7 +1,7 @@
 # 🎯 Master Prompt : Archery Monitor
 
 ## 📌 Context & Goal
-Build a high-performance Android application (Target SDK 35) for archers. 
+Build a high-performance Android application (Target SDK 35) for archers.
 **Core Feature:** A delayed video feedback loop (0-60s) allowing the archer to shoot, then walk back to the phone to review their posture with a real-time AI skeleton (Pose Estimation) overlaid on the delayed footage.
 
 ---
@@ -11,7 +11,7 @@ Build a high-performance Android application (Target SDK 35) for archers.
 
 - **Zero-Copy Architecture:** Avoid CPU-bound image copying. Use `HardwareBuffers` and `Surface` sharing between CameraX, MediaCodec, and MediaPipe.
 - **Memory Management:** Strictly use a **Circular Buffer** on internal storage via `mmap` (Memory-Mapped Files) to handle up to 30s of 1080p video without OOM (Out of Memory) crashes.
-- **Battery & Thermal:** 
+- **Battery & Thermal:**
     - Dual-Stream: Capture 1080p for recording, downsample to 480p for AI inference.
     - Thermal Throttling: Implement frame-skipping for AI if `PowerManager` reports high thermal status.
 - **Coordinate Precision:** Use `android.graphics.Matrix` for mapping MediaPipe normalized landmarks (0-1) to UI Canvas pixels. **Do not use manual ratio calculations.**
@@ -23,10 +23,10 @@ Build a high-performance Android application (Target SDK 35) for archers.
 ### Phase 1: Foundations (Clean Architecture)
 - Setup **Hilt** for DI.
 - Interfaces: `ICameraProvider`, `IBufferManager`, `IPoseAnalyzer`, `ISyncEngine`.
-- Use **Kotlin Flow** for reactive state management (IDLE, RECORDING, ANALYZING).
+- Use **Kotlin Flow** for reactive state management (IDLE, RECORDING).
 
 ### Phase 2: Capture & Storage (The Producer)
-- **CameraX Implementation:** 
+- **CameraX Implementation:**
     - Stream A: 1080p -> MediaCodec (H.264) -> Circular Buffer (mmap).
     - Stream B: Low-res -> ImageAnalysis (MediaPipe).
 - Features: Digital Zoom, AE/AF Lock, Mirror Flip (for front camera).
@@ -37,7 +37,7 @@ Build a high-performance Android application (Target SDK 35) for archers.
 - **Matrix Mapping:** Compute the transformation matrix once per frame including rotation, aspect ratio (ContentScale.Fit), and sensor orientation.
 
 ### Phase 4: UI & Remote Control (The Consumer)
-- **Jetpack Compose UI:** 
+- **Jetpack Compose UI:**
     - `SurfaceView` for raw video performance.
     - `Canvas` Overlay: Neon yellow skeleton with black outlines for high-contrast visibility in outdoor archery ranges.
 - **Remote Trigger:** Intercept `KEYCODE_VOLUME_UP` / `KEYCODE_VOLUME_DOWN` to toggle recording (Mi Band 6 & Bluetooth remote compatibility).

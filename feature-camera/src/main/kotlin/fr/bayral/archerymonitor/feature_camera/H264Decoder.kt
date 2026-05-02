@@ -2,7 +2,6 @@ package fr.bayral.archerymonitor.feature_camera
 
 import android.media.MediaCodec
 import android.media.MediaFormat
-import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
 import fr.bayral.archerymonitor.core.interfaces.IBufferManager
@@ -13,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.abs
 
 class H264Decoder @Inject constructor(
     private val bufferManager: IBufferManager
@@ -67,7 +67,7 @@ class H264Decoder @Inject constructor(
                 if (packets.isNotEmpty()) {
                     val packet = packets
                         .filter { it.info.presentationTimeUs > lastQueuedPts }
-                        .minByOrNull { Math.abs(it.info.presentationTimeUs - targetTimeUs) }
+                        .minByOrNull { abs(it.info.presentationTimeUs - targetTimeUs) }
 
                     if (packet != null) {
                         try {
