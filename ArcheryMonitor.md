@@ -17,30 +17,31 @@ Build a high-performance Android application (Target SDK 35) for archers.
 ## 🏗 2. Software Modules
 - **:core:** Common interfaces, `ISyncEngine`, `IBufferManager`, and `MatrixUtils`.
 - **:feature-camera:** `CameraXProvider` (capture), `H264Encoder`, and `H264Decoder` (replay).
-- **:feature-ai:** `MediaPipePoseAnalyzer` using Pose Landmarker (GPU/CPU).
-- **:app:** Jetpack Compose UI, `MainViewModel`, and App entry point.
+- **:feature-ai:** `MediaPipePoseAnalyzer` and the upcoming `PostureAnalyzer`.
+- **:app:** Jetpack Compose UI, `MainViewModel`, and Localization.
 
 ---
 
 ## 🚀 3. Key Technical Stabilizations
-- **Undistorted Display:** Replay uses `Modifier.requiredSize()` with manual scale calculation to achieve `FILL_CENTER` without squashing the video on ultra-wide screens (e.g. Pixel 7).
+- **Undistorted Display:** Replay uses `Modifier.requiredSize()` with manual scale calculation to achieve `FILL_CENTER` without squashing the video.
 - **Synchronized Overlay:** `SyncEngineImpl` matches video PTS with AI poses using a `TreeMap` with a 1s jitter tolerance.
-- **State Machine:**
-    - `IDLE`: Live preview only.
-    - `BUFFERING`: Filling the delay buffer (visual progress indicator).
-    - `RECORDING`: Delayed replay with synchronized AI skeleton.
-- **Resumption Logic:** Automatically returns to `BUFFERING` upon app resume if a recording was active, as the volatile buffer is cleared.
+- **Purge Logic:** AI history is cleared on every toggle to eliminate "ghost skeletons".
+- **Resumption:** Automatic return to `BUFFERING` state on app resume during active recording.
 
 ---
 
-## 🚨 4. UI & Localization
-- **High Contrast:** Neon skeleton overlay for outdoor visibility.
-- **Localization:** Full support for English, French, and Italian.
-- **Safety Padding:** Overlay text positioned (80.dp top) to avoid camera cutouts/notches.
+## 🏹 4. Phase 5: Biomechanical Analysis (The Coach)
+The primary objective is to analyze the archer's technique using the AI landmarks:
+- **Shoulder Alignment:** Calculate the angle between left/right shoulders (ideal: horizontal).
+- **Verticality:** Measure the angle of the main body axis (spine) relative to the ground (ideal: 90°).
+- **Head Stability:** Track head movement during the "hold" phase.
+- **Visual Coaching:** Dynamic skeleton coloring (e.g., Red shoulders if tilted, Green if aligned).
+- **Hold Detection:** Identify the 2-3 second static phase before the shot to trigger specific stability metrics.
 
 ---
 
 ## 📦 5. Core Implementation Requirements
-1. **No Bitmap Allocation:** Strictly avoid creating bitmaps in the primary analysis/encoding loop.
-2. **Matrix Mapping:** Use `Matrix.mapPoints` for skeleton rendering.
-3. **Lifecycle Aware:** Always release Camera and Codec resources in `ON_PAUSE`.
+1. **Geometric Precision:** Use 2D vector math and trigonometry for all angle calculations.
+2. **Matrix Mapping:** Use `Matrix.mapPoints` for all skeleton rendering.
+3. **Performance:** Posture analysis calculations must be efficient enough to run alongside video decoding.
+4. **Lifecycle Aware:** Always release Camera and Codec resources in `ON_PAUSE`.

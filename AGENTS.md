@@ -1,24 +1,26 @@
 ## Vision & Architecture Principles
 - **Project:** Archery Vision Pro (Android) - Delayed feedback with Pose Estimation.
-- **Performance:** strictly "Zero-Copy" logic where possible. Circular buffer using `mmap` for high-performance H.264 packet storage.
-- **Battery Optimization:** Gated AI analysis (only active during recording + if toggled ON).
-- **Coordinate System:** Strict use of `android.graphics.Matrix` for all coordinate mapping (Normalized -> Screen Pixels).
-- **Time Sync:** Mandatory use of `SystemClock.elapsedRealtimeNanos` for unified AI-Video anchoring.
+- **Performance:** strictly "Zero-Copy" logic. Circular buffer using `mmap`.
+- **Battery Optimization:** Gated AI analysis (active only during recording + if toggled ON).
+- **Coordinate System:** Strict use of `android.graphics.Matrix` (Normalized -> Screen Pixels).
+- **Time Sync:** Mandatory use of `SystemClock.elapsedRealtimeNanos` for AI-Video anchoring.
 
 ## Technical Stack
-- **Languages:** Idiomatic Kotlin (Coroutines/Flow).
 - **IA:** MediaPipe Pose Landmarker (GPU with CPU fallback).
-- **UI:** Jetpack Compose (2026) using `SurfaceView` and `requiredSize` for undistorted `FILL_CENTER`.
-- **Capture:** CameraX with dual-stream ImageAnalysis/Preview.
+- **UI:** Jetpack Compose (2026) using `requiredSize` for `FILL_CENTER`.
+- **Logic:** Idiomatic Kotlin (Coroutines/Flow).
+
+## Coaching & Analysis Goals (Phase 5)
+- **Biometrics:** Shoulder horizontal alignment, spine verticality (90°), and hold stability.
+- **Visual Feedback:** Contextual skeleton coloring and real-time posture metrics.
+- **Precision:** Use vector-based math for all biomechanical diagnostics.
 
 ## Critical Stabilizations (Lessons Learned)
-- **Pixel/Stride Support:** Must manually handle YUV plane row strides in image conversions to avoid skewed AI input on Pixel devices.
-- **Layout Deformation:** Use `requiredSize` and manual scale calculation to replicate `FILL_CENTER` without stretching on ultra-wide screens.
-- **Temporal Sync:** Use a 1s jitter threshold in `SyncEngine` and purge history on AI toggle to eliminate "ghost skeletons".
-- **Lifecycle:** Explicitly unbind CameraX and stop Decoders on `ON_PAUSE` to prevent "BufferQueue abandoned" errors.
-- **State Machine:** Handle `IDLE`, `BUFFERING`, and `RECORDING` transitions with visual user feedback (progress circle).
+- **Pixel/Stride Support:** Manual YUV stride handling is mandatory for Pixel devices.
+- **Layout Deformation:** Forced `FILL_CENTER` layout to prevent squashing on ultra-wide screens.
+- **Temporal Sync:** 1s jitter threshold + history purge on toggle to avoid AI ghosting.
+- **Lifecycle Management:** Explicit teardown on `ON_PAUSE` is required for Surface stability.
 
 ## Critical Constraints
-- **Remote:** Handle `KEYCODE_VOLUME_UP` as the trigger (Bluetooth remote compatibility).
-- **Localization:** Support for English, French, and Italian.
-- **Sync:** Pose results MUST match delayed frame PTS via `SyncEngine` TreeMap lookup.
+- **Remote:** Handle `KEYCODE_VOLUME_UP` as the trigger.
+- **Localization:** Full support for English, French, and Italian.
