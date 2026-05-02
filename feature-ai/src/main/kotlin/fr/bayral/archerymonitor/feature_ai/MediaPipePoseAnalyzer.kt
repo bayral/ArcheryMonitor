@@ -46,7 +46,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setBaseOptions(baseOptions)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result, _ ->
-                    processResult(result, System.nanoTime() / 1000)
+                    processResult(result, result.timestampMs())
                 }
                 .setMinPoseDetectionConfidence(0.8f)
                 .setMinPosePresenceConfidence(0.8f)
@@ -72,7 +72,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .setBaseOptions(baseOptions)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result, _ ->
-                    processResult(result, System.nanoTime() / 1000)
+                    processResult(result, result.timestampMs())
                 }
                 .setMinPoseDetectionConfidence(0.8f)
                 .setMinPosePresenceConfidence(0.8f)
@@ -89,7 +89,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
     override fun analyze(image: Image, timestamp: Long) {
         val bitmap = image.toBitmap() ?: return
         val mpImage = BitmapImageBuilder(bitmap).build()
-        // Use the same timestamp base as the encoder for syncing
+        // timestamp is in us, convert to ms for MediaPipe
         poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
     }
 
@@ -125,12 +125,14 @@ class MediaPipePoseAnalyzer @Inject constructor(
         poseLandmarker = null
     }
 
-    private fun processResult(result: PoseLandmarkerResult, timestampUs: Long) {
+    private fun processResult(result: PoseLandmarkerResult, timestampMs: Long) {
         if (result.landmarks().isEmpty()) {
             _poseResults.value = null
             return
         }
 
+        val timestampUs = timestampMs * 1000
+        
         val poseResult = PoseResult(
             landmarks = result.landmarks()[0].map {
                 Landmark(it.x(), it.y(), it.z(), it.visibility().orElse(0f), it.presence().orElse(0f))

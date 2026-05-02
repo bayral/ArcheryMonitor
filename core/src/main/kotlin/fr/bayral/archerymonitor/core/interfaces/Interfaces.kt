@@ -10,7 +10,7 @@ interface ICameraProvider {
     fun startCapture(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: androidx.camera.core.Preview.SurfaceProvider,
-        onResolutionChanged: (Int, Int) -> Unit = { _, _ -> },
+        onResolutionChanged: (width: Int, height: Int, rotation: Int) -> Unit = { _, _, _ -> },
         lowResAnalysis: (android.media.Image) -> Unit,
         useFrontCamera: Boolean
     )

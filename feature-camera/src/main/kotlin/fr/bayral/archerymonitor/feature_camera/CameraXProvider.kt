@@ -29,6 +29,7 @@ class CameraXProvider @Inject constructor(
     private var isRecording = false
     private var currentWidth = 0
     private var currentHeight = 0
+    private var currentRotation = -1
 
     override fun setRecording(isRecording: Boolean) {
         this.isRecording = isRecording
@@ -47,7 +48,7 @@ class CameraXProvider @Inject constructor(
     override fun startCapture(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
-        onResolutionChanged: (Int, Int) -> Unit,
+        onResolutionChanged: (width: Int, height: Int, rotation: Int) -> Unit,
         lowResAnalysis: (Image) -> Unit,
         useFrontCamera: Boolean
     ) {
@@ -93,31 +94,31 @@ class CameraXProvider @Inject constructor(
 
                 imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
                     val rotation = imageProxy.imageInfo.rotationDegrees
-                    val isPortrait = (rotation == 90) || (rotation == 270)
-                    val targetW = if (isPortrait) 720 else 1280
-                    val targetH = if (isPortrait) 1280 else 720
-
-                    // Re-prepare encoder if dimensions change (e.g. rotation)
-                    if ((targetW != currentWidth) || (targetH != currentHeight)) {
-                        currentWidth = targetW
-                        currentHeight = targetH
-                        encoder.prepare(currentWidth, currentHeight)
-                    }
-                    
                     val image = imageProxy.image
+                    
                     if (image != null) {
-                        frameCount++
-                        if ((frameCount % 100) == 0) {
-                            Log.d("CameraXProvider", "Analyzer: $frameCount frames. Rot: $rotation")
-                        }
+                        val isPortrait = (rotation == 90) || (rotation == 270)
+                        // Note: videoWidth/Height should be the dimensions AFTER rotation for the decoder
+                        val targetW = if (isPortrait) image.height else image.width
+                        val targetH = if (isPortrait) image.width else image.height
 
+                        // Re-prepare encoder if dimensions or rotation change
+                        if ((targetW != currentWidth) || (targetH != currentHeight) || (rotation != currentRotation)) {
+                            currentWidth = targetW
+                            currentHeight = targetH
+                            currentRotation = rotation
+                            encoder.prepare(currentWidth, currentHeight)
+                            // We report the raw image size and the rotation to the ViewModel
+                            onResolutionChanged(image.width, image.height, rotation)
+                        }
+                        
+                        frameCount++
                         val ts = SystemClock.elapsedRealtimeNanos() / 1000
                         lowResAnalysis(image)
                         
                         if (isRecording) {
                             if (!encoder.isEncoding) {
                                 encoder.start()
-                                onResolutionChanged(currentWidth, currentHeight)
                             }
                             encoder.encodeImage(image, ts, useFrontCamera, rotation)
                         }

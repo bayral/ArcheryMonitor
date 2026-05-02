@@ -14,6 +14,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import fr.bayral.archerymonitor.core.interfaces.AppState
 import fr.bayral.archerymonitor.core.utils.MatrixUtils
 import fr.bayral.archerymonitor.ui.components.SkeletonOverlay
@@ -51,17 +55,12 @@ fun MainScreenContent(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
-
-    // Add lifecycle observer to restart capture on RESUME if it was lost
+    
     DisposableEffect(lifecycleOwner, surfaceProvider) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
-                    onStopCapture()
-                }
-                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                    surfaceProvider?.let { onStartCapture(lifecycleOwner, it) }
-                }
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> onStopCapture()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> surfaceProvider?.let { onStartCapture(lifecycleOwner, it) }
                 else -> {}
             }
         }
@@ -69,26 +68,12 @@ fun MainScreenContent(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Start capture when both camera preference and surface provider are ready
     LaunchedEffect(uiState.useFrontCamera, surfaceProvider, lifecycleOwner) {
-        surfaceProvider?.let {
-            onStartCapture(lifecycleOwner, it)
-        }
+        surfaceProvider?.let { onStartCapture(lifecycleOwner, it) }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            // Camera lifecycle is handled by the CameraProvider bound to the LifecycleOwner
-            // and the ViewModel onCleared().
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // 1. Live Camera Preview (Always running in background)
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // 1. Live Camera Preview
         AndroidView(
             factory = { context ->
                 PreviewView(context).apply {
@@ -101,45 +86,59 @@ fun MainScreenContent(
         )
 
         // 2. Delayed Playback Surface
-        if ((uiState.appState == AppState.RECORDING || uiState.appState == AppState.BUFFERING) && (uiState.delaySeconds > 0)) {
-            val ratio = if ((uiState.videoWidth > 0) && (uiState.videoHeight > 0)) {
-                uiState.videoWidth.toFloat() / uiState.videoHeight.toFloat()
-            } else {
-                9f / 16f
-            }
+        if ((uiState.appState != AppState.IDLE) && (uiState.delaySeconds > 0)) {
+            var boxSize by remember { mutableStateOf(IntSize.Zero) }
+            val density = LocalDensity.current
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .aspectRatio(ratio, matchHeightConstraintsFirst = true)
-                    .align(Alignment.Center),
+                    .onSizeChanged { boxSize = it }
+                    .clipToBounds(),
                 contentAlignment = Alignment.Center
             ) {
+                // Determine orientation-adjusted dimensions
+                val isPortrait = (uiState.videoRotation == 90 || uiState.videoRotation == 270)
+                val contentW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
+                val contentH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
+                
+                // Use requiredSize to force FILL_CENTER and bypass parent constraints
+                val modifier = if (boxSize != IntSize.Zero && contentW > 0 && contentH > 0) {
+                    val scale = Math.max(
+                        boxSize.width.toFloat() / contentW,
+                        boxSize.height.toFloat() / contentH
+                    )
+                    Modifier.requiredSize(
+                        width = with(density) { (contentW * scale).toDp() },
+                        height = with(density) { (contentH * scale).toDp() }
+                    )
+                } else {
+                    Modifier.fillMaxSize()
+                }
+
                 AndroidView(
                     factory = { context ->
                         SurfaceView(context).apply {
                             setZOrderMediaOverlay(true)
-                            holder.addCallback(
-                                object : SurfaceHolder.Callback {
-                                    override fun surfaceCreated(holder: SurfaceHolder) {
-                                        onSurfaceCreated(holder.surface)
-                                    }
-                                    override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
-                                    override fun surfaceDestroyed(h: SurfaceHolder) {}
-                                }
-                            )
+                            holder.addCallback(object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) = onSurfaceCreated(holder.surface)
+                                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
+                                override fun surfaceDestroyed(h: SurfaceHolder) {}
+                            })
                         }
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = modifier
                 )
 
-                // 3. AI Overlay (Linked to playback Box for same scaling)
-                if (uiState.isAiEnabled) {
-                    val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.useFrontCamera) {
+                // 3. AI Overlay (Stays aligned with the Box, which is the visible screen)
+                if (uiState.isAiEnabled && boxSize != IntSize.Zero && contentW > 0) {
+                    val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.videoRotation, uiState.useFrontCamera, boxSize) {
                         MatrixUtils.getTransformationMatrix(
-                            viewWidth = uiState.videoWidth,
-                            viewHeight = uiState.videoHeight,
-                            rotationDegrees = 90,
+                            srcWidth = uiState.videoWidth,
+                            srcHeight = uiState.videoHeight,
+                            viewWidth = boxSize.width,
+                            viewHeight = boxSize.height,
+                            rotationDegrees = uiState.videoRotation,
                             isMirrored = uiState.useFrontCamera
                         )
                     }
@@ -151,8 +150,8 @@ fun MainScreenContent(
                 }
             }
         }
-
-        // RED INDICATOR Overlay (Visible whenever buffering or recording)
+            
+        // Overlay Status
         Box(modifier = Modifier.fillMaxSize().padding(top = 80.dp, start = 32.dp), contentAlignment = Alignment.TopStart) {
             if (uiState.appState == AppState.BUFFERING) {
                 Text("● BUFFERING...", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
@@ -161,14 +160,13 @@ fun MainScreenContent(
             }
         }
 
-        // BUFFERING PROGRESS
         if (uiState.appState == AppState.BUFFERING) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
             }
         }
 
-        // 4. Controls
+        // Controls
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -179,27 +177,18 @@ fun MainScreenContent(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Delay: ${uiState.delaySeconds.toInt()}s",
-                color = Color.White,
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Text(text = "Delay: ${uiState.delaySeconds.toInt()}s", color = Color.White, style = MaterialTheme.typography.bodyLarge)
             Slider(
                 value = uiState.delaySeconds,
                 onValueChange = { onSetDelay(it) },
-                valueRange = 0f..30f,
+                valueRange = 1f..30f,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Button(
                     onClick = { onToggleRecording() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary)
                 ) {
                     Text(if (uiState.appState != AppState.IDLE) "STOP" else "RECORD")
                 }
@@ -219,19 +208,8 @@ fun MainScreenContent(
 fun MainScreenPreview() {
     ArcheryMonitorTheme {
         MainScreenContent(
-            uiState = MainUiState(
-                appState = AppState.IDLE,
-                delaySeconds = 10f,
-                isAiEnabled = true,
-                currentPose = null,
-                useFrontCamera = false
-            ),
-            onStartCapture = { _, _ -> },
-            onStopCapture = {},
-            onToggleRecording = {},
-            onToggleAi = {},
-            onToggleCamera = {},
-            onSetDelay = {}
+            uiState = MainUiState(appState = AppState.IDLE, delaySeconds = 10f, isAiEnabled = true, currentPose = null, useFrontCamera = false),
+            onStartCapture = { _, _ -> }, onStopCapture = {}, onToggleRecording = {}, onToggleAi = {}, onToggleCamera = {}, onSetDelay = {}
         )
     }
 }

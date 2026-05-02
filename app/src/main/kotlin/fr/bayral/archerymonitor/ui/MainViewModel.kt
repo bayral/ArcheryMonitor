@@ -51,7 +51,10 @@ class MainViewModel @Inject constructor(
         // If we were recording before pause, we must return to BUFFERING 
         // because the capture session and its cache have been cleared.
         if (_uiState.value.appState == AppState.RECORDING) {
-            _uiState.value = _uiState.value.copy(appState = AppState.BUFFERING)
+            _uiState.value = _uiState.value.copy(
+                appState = AppState.BUFFERING,
+                currentPose = null
+            )
             cameraProvider.prepareRecording()
             cameraProvider.setRecording(true)
         }
@@ -59,8 +62,12 @@ class MainViewModel @Inject constructor(
         cameraProvider.startCapture(
             lifecycleOwner = lifecycleOwner,
             surfaceProvider = surfaceProvider,
-            onResolutionChanged = { w, h ->
-                _uiState.value = _uiState.value.copy(videoWidth = w, videoHeight = h)
+            onResolutionChanged = { w, h, rot ->
+                _uiState.value = _uiState.value.copy(
+                    videoWidth = w, 
+                    videoHeight = h,
+                    videoRotation = rot
+                )
                 // Restart decoder with new dimensions if recording/buffering
                 if (_uiState.value.appState != AppState.IDLE) {
                     currentSurface?.let { startDelayedPlayback(it) }
@@ -88,7 +95,10 @@ class MainViewModel @Inject constructor(
             cameraProvider.setRecording(true)
             AppState.BUFFERING
         }
-        _uiState.value = _uiState.value.copy(appState = newState)
+        _uiState.value = _uiState.value.copy(
+            appState = newState,
+            currentPose = null
+        )
 
         // If we just started recording, ensure decoder starts too
         if (newState == AppState.BUFFERING) {
@@ -110,7 +120,12 @@ class MainViewModel @Inject constructor(
     fun startDelayedPlayback(surface: android.view.Surface) {
         currentSurface = surface
         if (_uiState.value.appState == AppState.RECORDING || _uiState.value.appState == AppState.BUFFERING) {
-            decoder.start(surface, _uiState.value.videoWidth, _uiState.value.videoHeight, _uiState.value.delaySeconds) {
+            // Note: Use rotated dimensions for decoder
+            val isPortrait = (_uiState.value.videoRotation == 90) || (_uiState.value.videoRotation == 270)
+            val decodeW = if (isPortrait) _uiState.value.videoHeight else _uiState.value.videoWidth
+            val decodeH = if (isPortrait) _uiState.value.videoWidth else _uiState.value.videoHeight
+
+            decoder.start(surface, decodeW, decodeH, _uiState.value.delaySeconds) {
                 onDecoderStarted()
             }
         }
@@ -152,6 +167,7 @@ data class MainUiState(
     val isAiEnabled: Boolean = true,
     val currentPose: PoseResult? = null,
     val useFrontCamera: Boolean = false,
-    val videoWidth: Int = 720,
-    val videoHeight: Int = 1280
+    val videoWidth: Int = 1280,
+    val videoHeight: Int = 720,
+    val videoRotation: Int = 0
 )
