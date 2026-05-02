@@ -49,7 +49,7 @@ class CameraXProvider @Inject constructor(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         onResolutionChanged: (width: Int, height: Int, rotation: Int) -> Unit,
-        lowResAnalysis: (Image) -> Unit,
+        lowResAnalysis: (image: Image, timestamp: Long) -> Unit,
         useFrontCamera: Boolean
     ) {
         Log.d("CameraXProvider", "startCapture called. useFrontCamera=$useFrontCamera")
@@ -98,7 +98,6 @@ class CameraXProvider @Inject constructor(
                     
                     if (image != null) {
                         val isPortrait = (rotation == 90) || (rotation == 270)
-                        // Note: videoWidth/Height should be the dimensions AFTER rotation for the decoder
                         val targetW = if (isPortrait) image.height else image.width
                         val targetH = if (isPortrait) image.width else image.height
 
@@ -108,13 +107,13 @@ class CameraXProvider @Inject constructor(
                             currentHeight = targetH
                             currentRotation = rotation
                             encoder.prepare(currentWidth, currentHeight)
-                            // We report the raw image size and the rotation to the ViewModel
                             onResolutionChanged(image.width, image.height, rotation)
                         }
                         
                         frameCount++
+                        // Use the SAME timestamp for analysis and encoding
                         val ts = SystemClock.elapsedRealtimeNanos() / 1000
-                        lowResAnalysis(image)
+                        lowResAnalysis(image, ts)
                         
                         if (isRecording) {
                             if (!encoder.isEncoding) {

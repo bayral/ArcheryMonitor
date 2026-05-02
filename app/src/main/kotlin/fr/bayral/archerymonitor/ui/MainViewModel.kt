@@ -37,6 +37,7 @@ class MainViewModel @Inject constructor(
         // Collect decoder timestamp and sync pose
         decoder.currentPlaybackTimestamp
             .onEach { pts ->
+                // Allow sync during BUFFERING too so we see it as soon as pixels arrive
                 if (_uiState.value.appState != AppState.IDLE) {
                     val syncedPose = syncEngine.getSyncPose(pts)
                     _uiState.value = _uiState.value.copy(currentPose = syncedPose)
@@ -73,8 +74,8 @@ class MainViewModel @Inject constructor(
                     currentSurface?.let { startDelayedPlayback(it) }
                 }
             },
-            lowResAnalysis = { image ->
-                poseAnalyzer.analyze(image, System.nanoTime() / 1000)
+            lowResAnalysis = { image, timestamp ->
+                poseAnalyzer.analyze(image, timestamp)
             },
             useFrontCamera = _uiState.value.useFrontCamera
         )

@@ -11,7 +11,7 @@ interface ICameraProvider {
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: androidx.camera.core.Preview.SurfaceProvider,
         onResolutionChanged: (width: Int, height: Int, rotation: Int) -> Unit = { _, _, _ -> },
-        lowResAnalysis: (android.media.Image) -> Unit,
+        lowResAnalysis: (image: android.media.Image, timestamp: Long) -> Unit,
         useFrontCamera: Boolean
     )
     fun setRecording(isRecording: Boolean)
