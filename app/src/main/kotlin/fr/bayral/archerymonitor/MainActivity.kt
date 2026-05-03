@@ -98,22 +98,50 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Intercepts hardware key events.
-     * Maps VOLUME_UP to toggle recording and VOLUME_DOWN to toggle AI.
-     */
+    private var isVolumeUpLongPressed = false
+    private var isVolumeDownLongPressed = false
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event?.isLongPress == true) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    isVolumeUpLongPressed = true
+                    viewModel.setDelay((viewModel.uiState.value.delaySeconds - 1f).coerceAtLeast(1f))
+                    return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    isVolumeDownLongPressed = true
+                    viewModel.setDelay(viewModel.uiState.value.delaySeconds + 1f)
+                    return true
+                }
+            }
+        }
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> true
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                viewModel.toggleRecording()
+                if (isVolumeUpLongPressed) {
+                    isVolumeUpLongPressed = false
+                } else {
+                    viewModel.toggleRecording()
+                }
                 return true
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                viewModel.toggleAi()
+                if (isVolumeDownLongPressed) {
+                    isVolumeDownLongPressed = false
+                } else {
+                    viewModel.toggleAi()
+                }
                 return true
             }
         }
-        return super.onKeyDown(keyCode, event)
+        return super.onKeyUp(keyCode, event)
     }
 }
 

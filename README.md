@@ -27,7 +27,18 @@ The application is built using a modular Clean Architecture approach:
 *   **Device Compatibility:** Explicit handling of YUV row strides ensures accurate AI detection on Google Pixel and other devices that use non-standard memory layouts for camera frames.
 *   **Lifecycle Stability:** Robust management of CameraX and MediaCodec resources ensures the app handles screen locks and app switching without pipeline crashes or "BufferQueue abandoned" errors.
 
-## 🚀 Getting Started
+## 📱 Remote Control (Bluetooth)
+
+You can control Archery Monitor wirelessly using standard Bluetooth camera remotes (e.g., AB Shutter 3):
+
+- **Volume UP:** 
+    - **Single Press:** Toggle Recording ON/OFF.
+    - **Long Press:** Decrease playback delay (min 1s).
+- **Volume DOWN:** 
+    - **Single Press:** Toggle AI Analysis ON/OFF.
+    - **Long Press:** Increase playback delay.
+
+The remote events are consumed by the app, so you won't see system volume bars or menus while using these features.
 
 ### Prerequisites
 - Android device running **Android 11 (API 30)** or higher.

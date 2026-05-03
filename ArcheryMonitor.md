@@ -6,6 +6,16 @@ Build a high-performance Android application for archers, providing **real-time 
 
 ---
 
+## 🎮 6. Remote Control Integration
+To enhance the archer's workflow, the application supports Bluetooth camera remotes (like AB Shutter 3) by intercepting standard Volume Key events:
+
+- **Volume UP:** Toggle Recording (`onKeyUp`) / Decrease Delay (`LongPress`).
+- **Volume DOWN:** Toggle AI Analysis (`onKeyUp`) / Increase Delay (`LongPress`).
+
+**Implementation detail:** 
+- Key events are explicitly consumed (returns `true`) to prevent system-level volume bars or interference.
+- Hardware key handling uses `onKeyDown` (for long-press adjustment) and `onKeyUp` (to distinguish from standard toggles).
+
 ## 🛠 1. Core Architecture Principles
 - **Circular Buffer:** `mmap` circular buffer for zero-copy 30s video storage.
 - **Unified Clock:** `SystemClock.elapsedRealtimeNanos` for AI-Video timestamp synchronization.
