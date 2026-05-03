@@ -60,6 +60,7 @@ android {
             )
         }
     }
+
     /* splits {
         abi {
             isEnable = true
@@ -85,6 +86,19 @@ android {
             enableSplit = false
         }
     } */
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val projectName = "ArcheryMonitor"
+            output.outputFileName.set(
+                output.versionName.map { version ->
+                    "${projectName}-${version}.apk"
+                }
+            )
+        }
+    }
 }
 
 kotlin {
