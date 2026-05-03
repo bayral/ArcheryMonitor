@@ -14,7 +14,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.bayral.archerymonitor.core.interfaces.IPoseAnalyzer
 import fr.bayral.archerymonitor.core.interfaces.Landmark
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
-import fr.bayral.archerymonitor.core.sync.SyncEngineImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -75,7 +74,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
                     // AI-Video Anchoring: use the frame's original timestampMs.
                     processResult(result, result.timestampMs())
                 }
-                .setMinPoseDetectionConfidence(0.6f) 
+                .setMinPoseDetectionConfidence(0.6f)
                 .setMinPosePresenceConfidence(0.6f)
                 .setMinTrackingConfidence(0.6f)
                 .build()
@@ -212,7 +211,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
         // Convert back to microseconds (us) for high-precision SyncEngine matching.
         val timestampUs = timestampMs * 1000
-        
+
         val poseResult = PoseResult(
             landmarks = result.landmarks()[0].map {
                 Landmark(it.x(), it.y(), it.z(), it.visibility().orElse(0f), it.presence().orElse(0f))
