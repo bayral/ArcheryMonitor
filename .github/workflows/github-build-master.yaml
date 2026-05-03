@@ -33,6 +33,7 @@ jobs:
                   SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
                   SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
                   SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+                  APP_VERSION: ${{ github.ref_name }}
 
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v2

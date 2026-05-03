@@ -13,8 +13,22 @@ android {
         applicationId = "fr.bayral.archerymonitor"
         minSdk = 26
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+
+        // --- LOGIQUE DE VERSIONING AUTO ---
+        val isGitHubActions = System.getenv("GITHUB_ACTIONS") == "true"
+        val tagVersion = System.getenv("APP_VERSION")
+
+        // Si on est sur GitHub avec un Tag, on prend le Tag, sinon suffixe LOCAL
+        versionName = if (isGitHubActions && tagVersion != null) {
+            tagVersion
+        } else {
+            "1.0-LOCAL"
+        }
+
+        // Le versionCode doit être un entier. Utiliser le temps (en minutes)
+        // garantit qu'il est toujours croissant pour l'installation.
+        versionCode = (System.currentTimeMillis() / 60000).toInt()
+        // ----------------------------------
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
