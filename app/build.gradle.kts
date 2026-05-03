@@ -25,8 +25,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            // "release.jks" est le nom du fichier créé par le YAML sur GitHub
+            storeFile = file("release.jks")
+            // System.getenv va lire les secrets que tu as mis sur GitHub
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
