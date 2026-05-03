@@ -51,6 +51,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
@@ -75,6 +78,9 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    androidResources {
+        noCompress += "task"
     }
     packaging {
         resources {

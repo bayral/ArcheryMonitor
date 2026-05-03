@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#FF333333"
+        android:pathData="M50,50m-45,0a45,45 0,1 1,90 0a45,45 0,1 1,-90 0"/>
+
+    <!-- Target Rings (Simplified) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,50m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M50,50m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/>
+    <path
+        android:fillColor="#FF00AAFF"
+        android:pathData="M50,50m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"/>
+    <path
+        android:fillColor="#FFFF0000"
+        android:pathData="M50,50m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0"/>
+    <path
+        android:fillColor="#FFFFDD00"
+        android:pathData="M50,50m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
+
+    <!-- DEV Banner -->
+    <path
+        android:fillColor="#FFFF0000"
+        android:pathData="M0,0 L100,0 L100,25 L0,25 Z"/>
+    
+    <!-- DEV Text (approximate with shapes or just a distinct banner) -->
+    <!-- For simplicity in a vector, we use a distinct overlay color -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15,5 L25,5 L25,20 L15,20 Z M35,5 L45,5 L45,10 L35,10 L35,20 L45,20 Z M55,5 L65,5 L70,20 L60,20 Z"/>
+
+</vector>

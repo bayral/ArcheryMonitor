@@ -111,12 +111,6 @@ fun MainScreenContent(
                 val contentW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
                 val contentH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
 
-                /**
-                 * CHALLENGE: Video Deformation on ultra-wide screens (Pixel 7).
-                 * Standard aspectRatio() can squash the video to fit the constraints.
-                 * SOLUTION: Use requiredSize() to force the correct ratio even if it
-                 * exceeds screen bounds, achieving a perfect, undistorted FILL_CENTER.
-                 */
                 val modifier = if (boxSize != IntSize.Zero && contentW > 0 && contentH > 0) {
                     val scale = maxOf(
                         boxSize.width.toFloat() / contentW,
@@ -132,22 +126,24 @@ fun MainScreenContent(
 
                 AndroidView(
                     factory = { context ->
-                        SurfaceView(context).apply {
-                            setZOrderMediaOverlay(true)
-                            holder.addCallback(object : SurfaceHolder.Callback {
-                                override fun surfaceCreated(holder: SurfaceHolder) = onSurfaceCreated(holder.surface)
-                                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
-                                override fun surfaceDestroyed(h: SurfaceHolder) {}
-                            })
+                        android.view.TextureView(context).apply {
+                            surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                                    onSurfaceCreated(android.view.Surface(st))
+                                }
+                                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
+                                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
+                                override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+                            }
                         }
                     },
                     modifier = modifier
                 )
 
-                // 3. AI Overlay
+                // 3. AI Overlay (Must match the boxSize which is the visible screen area)
                 if (uiState.isAiEnabled && boxSize != IntSize.Zero && contentW > 0) {
                     val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.videoRotation, uiState.useFrontCamera, boxSize) {
-                        MatrixUtils.getTransformationMatrix(
+                        fr.bayral.archerymonitor.core.utils.MatrixUtils.getTransformationMatrix(
                             srcWidth = uiState.videoWidth,
                             srcHeight = uiState.videoHeight,
                             viewWidth = boxSize.width,
