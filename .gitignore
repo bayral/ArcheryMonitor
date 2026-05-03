@@ -27,6 +27,8 @@ captures/
 # Local configuration
 local.properties
 .env
+*.jks
+base64_ArcheryMonitorKeystore.txt
 
 # MediaPipe model (usually too large to commit)
 app/src/main/assets/*.task
