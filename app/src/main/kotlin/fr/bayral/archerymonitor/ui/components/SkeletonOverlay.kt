@@ -7,17 +7,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import fr.bayral.archerymonitor.core.interfaces.AnalysisResult
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
 
+/**
+ * High-contrast skeleton overlay for outdoor archery posture review.
+ *
+ * This component draws the joints and bones detected by the AI using a neon yellow
+ * center and black outlines to ensure maximum visibility in sunlight.
+ *
+ * @param poseResult The current synchronized pose to display.
+ * @param analysisResult The current analysis result for colorization.
+ * @param transformationMatrix Matrix used to map 0..1 AI coordinates to screen pixels.
+ * @param modifier Modifier for the canvas layout.
+ */
 @Composable
 fun SkeletonOverlay(
     poseResult: PoseResult?,
+    analysisResult: AnalysisResult?,
     transformationMatrix: Matrix,
     modifier: Modifier = Modifier,
 ) {
     if (poseResult == null) return
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        // Map normalized landmarks to display pixels
         val mappedPoints = FloatArray(poseResult.landmarks.size * 2)
         poseResult.landmarks.forEachIndexed { index, landmark ->
             mappedPoints[index * 2] = landmark.x
@@ -26,12 +40,12 @@ fun SkeletonOverlay(
 
         transformationMatrix.mapPoints(mappedPoints)
 
-        // Helper to get offset from landmark index
+        /** Helper to retrieve pixel coordinates for a specific landmark index. */
         fun getOffset(index: Int): Offset {
             return Offset(mappedPoints[index * 2], mappedPoints[index * 2 + 1])
         }
 
-        // Define connections (Indices based on MediaPipe Pose Landmarker)
+        // Define body segment connections (MediaPipe index mapping)
         val connections = listOf(
             Pair(11, 12), // Shoulders
             Pair(11, 13), Pair(13, 15), // Left arm
@@ -42,34 +56,27 @@ fun SkeletonOverlay(
             Pair(24, 26), Pair(26, 28)  // Right leg
         )
 
+        // Draw connections with double-layer (outline + neon center)
         connections.forEach { (start, end) ->
             if (start < poseResult.landmarks.size && end < poseResult.landmarks.size) {
                 val p1 = getOffset(start)
                 val p2 = getOffset(end)
+                
+                // If analysis provides a color for joints, use it, else default to Yellow
+                val color = analysisResult?.jointColors?.get(start)?.let { Color(it) } ?: Color.Yellow
 
-                // High-visibility: Black outline
-                drawLine(
-                    color = Color.Black,
-                    start = p1,
-                    end = p2,
-                    strokeWidth = 10f
-                )
-                // High-visibility: Neon Yellow center
-                drawLine(
-                    color = Color.Yellow,
-                    start = p1,
-                    end = p2,
-                    strokeWidth = 4f
-                )
+                drawLine(color = Color.Black, start = p1, end = p2, strokeWidth = 10f)
+                drawLine(color = color, start = p1, end = p2, strokeWidth = 4f)
             }
         }
 
-        // Draw joints
+        // Draw individual joint circles
         poseResult.landmarks.forEachIndexed { index, _ ->
-            if (index in 11..28) { // Only major body joints
+            if (index in 11..28) { // Focus on major body joints
                 val center = getOffset(index)
+                val color = analysisResult?.jointColors?.get(index)?.let { Color(it) } ?: Color.Yellow
                 drawCircle(Color.Black, radius = 8f, center = center)
-                drawCircle(Color.Yellow, radius = 4f, center = center)
+                drawCircle(color, radius = 4f, center = center)
             }
         }
     }

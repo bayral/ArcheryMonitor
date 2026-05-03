@@ -9,4 +9,6 @@
     <string name="btn_ai_on">Attiva IA</string>
     <string name="btn_camera_back">Posteriore</string>
     <string name="btn_camera_front">Frontale</string>
+    <string name="label_none">Nessuno</string>
+    <string name="label_posture_general">Postura generale</string>
 </resources>

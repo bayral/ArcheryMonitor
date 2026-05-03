@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.compose)
@@ -47,18 +46,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-            freeCompilerArgs.addAll(
-                "-opt-in=androidx.camera.core.ExperimentalGetImage",
-                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-                "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-                "-opt-in=androidx.camera.extensions.ExperimentalExtensionApi",
-                "-opt-in=androidx.camera.camera2.interop.ExperimentalCamera2Interop"
-            )
-        }
-    }
     buildFeatures {
         compose = true
     }
@@ -74,14 +61,29 @@ android {
     } */
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        freeCompilerArgs.addAll(
+            "-opt-in=androidx.camera.core.ExperimentalGetImage",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.camera.extensions.ExperimentalExtensionApi",
+            "-opt-in=androidx.camera.camera2.interop.ExperimentalCamera2Interop"
+        )
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":feature-camera"))
     implementation(project(":feature-ai"))
+    implementation(project(":resources"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

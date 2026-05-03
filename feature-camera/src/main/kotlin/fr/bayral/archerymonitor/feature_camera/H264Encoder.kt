@@ -14,19 +14,46 @@ import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import javax.inject.Inject
 
+/**
+ * High-performance H.264 Video Encoder using [MediaCodec].
+ *
+ * This class captures raw YUV frames from the camera, rotates and mirrors them
+ * using manual pixel manipulation (optimized for H.264 input requirements),
+ * and feeds the resulting bitstream to the [IBufferManager].
+ *
+ * @property bufferManager The manager used to store encoded packets.
+ */
 class H264Encoder @Inject constructor(
     private val bufferManager: IBufferManager,
 ) {
+    /** The Android hardware codec instance. */
     private var mediaCodec: MediaCodec? = null
+
+    /** Job for the asynchronous output buffer processing loop. */
     private var encoderJob: Job? = null
+
+    /** Coroutine scope for the processing loop. */
     private val scope = CoroutineScope(Dispatchers.Default)
 
+    /** Synchronization lock for codec operations. */
     private val codecLock = Any()
+
+    /** Public flag indicating if the encoder is currently running. */
     var isEncoding = false
         private set
+
+    /** Internal input stride required by the codec (often equals width). */
     private var inputStride = 0
+
+    /** Internal slice height required by the codec (often equals height). */
     private var inputSliceHeight = 0
 
+    /**
+     * Prepares the encoder with specific resolution.
+     *
+     * @param width The target output width.
+     * @param height The target output height.
+     */
     fun prepare(width: Int, height: Int) {
         synchronized(codecLock) {
             stop()
@@ -35,29 +62,22 @@ class H264Encoder @Inject constructor(
                 try {
                     val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
 
-                    // Choose a supported color format
+                    // Choose a supported color format (prefer YUV420Flexible)
                     val capabilities = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                     val supportedColorFormats = capabilities?.colorFormats ?: intArrayOf()
-                    val colorFormat = when {
-                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible in supportedColorFormats ->
-                            MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
-                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar in supportedColorFormats ->
-                            MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
-                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar in supportedColorFormats ->
-                            MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
-                        else -> supportedColorFormats.firstOrNull() ?: MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                    val colorFormat = if (MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible in supportedColorFormats) {
+                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                    } else {
+                        supportedColorFormats.firstOrNull() ?: MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
                     }
                     format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat)
 
-                    // Add essential keys for H264 encoding
                     format.setInteger(MediaFormat.KEY_BIT_RATE, 2000000)
                     format.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
                     format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
 
-                    // Validate if the device supports the requested dimensions
                     val videoCapabilities = capabilities?.videoCapabilities
                     if ((videoCapabilities != null) && !videoCapabilities.isSizeSupported(width, height)) {
-                        Log.e("H264Encoder", "Size $width x $height is not supported by this encoder")
                         throw IllegalArgumentException("Size $width x $height is not supported")
                     }
 
@@ -80,6 +100,9 @@ class H264Encoder @Inject constructor(
         }
     }
 
+    /**
+     * Starts the encoding session and the output polling loop.
+     */
     fun start() {
         synchronized(codecLock) {
             try {
@@ -107,6 +130,14 @@ class H264Encoder @Inject constructor(
         }
     }
 
+    /**
+     * Encodes a single raw camera [Image].
+     *
+     * @param image The raw input frame.
+     * @param timestampUs Presentation timestamp in microseconds.
+     * @param isMirrored Whether to apply a horizontal mirror flip.
+     * @param rotation Rotation in degrees (0, 90, 180, 270).
+     */
     fun encodeImage(image: Image, timestampUs: Long, isMirrored: Boolean, rotation: Int) {
         synchronized(codecLock) {
             val codec = mediaCodec ?: return
@@ -125,13 +156,18 @@ class H264Encoder @Inject constructor(
         }
     }
 
+    /**
+     * Internal pixel manipulation to rotate and mirror YUV planes to match codec layout.
+     *
+     * @param image Source camera frame.
+     * @param dst Destination [ByteBuffer] (MediaCodec input buffer).
+     */
     private fun copyAndRotateYUV(image: Image, dst: ByteBuffer, isMirrored: Boolean, rotation: Int) {
         dst.clear()
         val srcW = image.width
         val srcH = image.height
         val planes = image.planes
 
-        // Output dimensions depend on rotation
         val isPortraitOutput = (rotation == 90) || (rotation == 270)
         val dstW = if (isPortraitOutput) srcH else srcW
         val dstH = if (isPortraitOutput) srcW else srcH
@@ -145,26 +181,26 @@ class H264Encoder @Inject constructor(
         val uvRowStride = planes[1].rowStride
         val uvPixelStride = planes[1].pixelStride
 
-        // 1. Rotate & Flip Y
+        // 1. Rotate & Flip Y Plane
         for (y in 0 until srcH) {
             for (x in 0 until srcW) {
                 var finalX: Int
                 var finalY: Int
 
                 when (rotation) {
-                    90 -> { // Typical front camera
+                    90 -> {
                         finalX = srcH - 1 - y
                         finalY = x
                     }
-                    180 -> { // Upside down landscape
+                    180 -> {
                         finalX = srcW - 1 - x
                         finalY = srcH - 1 - y
                     }
-                    270 -> { // Typical back camera
+                    270 -> {
                         finalX = y
                         finalY = srcW - 1 - x
                     }
-                    else -> { // 0 - Landscape
+                    else -> {
                         finalX = x
                         finalY = y
                     }
@@ -181,7 +217,7 @@ class H264Encoder @Inject constructor(
             }
         }
 
-        // 2. Rotate & Flip U/V (NV12)
+        // 2. Rotate & Flip U/V Planes (Interleaved NV12 format)
         val uvOffset = stride * (if (inputSliceHeight > 0) inputSliceHeight else dstH)
         for (y in 0 until srcH / 2) {
             for (x in 0 until srcW / 2) {
@@ -224,6 +260,9 @@ class H264Encoder @Inject constructor(
         }
     }
 
+    /**
+     * Cancels the loop, stops the codec, and releases hardware resources.
+     */
     fun stop() {
         encoderJob?.cancel()
         encoderJob = null

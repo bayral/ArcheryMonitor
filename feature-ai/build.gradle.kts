@@ -1,6 +1,5 @@
 plugins {
     id("com.android.library")
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -32,6 +31,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":resources"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.mediapipe.tasks.vision)

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,8 +35,16 @@ import fr.bayral.archerymonitor.ui.MainUiState
 import fr.bayral.archerymonitor.ui.MainViewModel
 import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
 
+/**
+ * The primary entry point for the Archery Monitor application.
+ *
+ * This activity handles camera permission requests, sets up the Compose UI,
+ * and intercepts hardware key events for remote control.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    /** The main ViewModel managing app state and logic. */
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +52,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ArcheryMonitorTheme {
+                // Keep screen on logic
+                val uiState by viewModel.uiState.collectAsState()
+                LaunchedEffect(uiState.appState) {
+                    if (uiState.appState != AppState.IDLE) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                }
+
                 val context = LocalContext.current
                 var hasCameraPermission by remember {
                     mutableStateOf(
@@ -78,6 +98,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Intercepts hardware key events.
+     * Maps VOLUME_UP to toggle recording (for Bluetooth remote compatibility).
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             viewModel.toggleRecording()
@@ -87,24 +111,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview(showBackground = true, widthDp = 320, heightDp = 640)
+/**
+ * Preview for the [MainScreenContent] component.
+ */
+@Preview(showBackground = true, widthDp = 320, heightDp = 640, apiLevel = 35)
 @Composable
 fun MainPreview() {
     ArcheryMonitorTheme {
+        // Preview content without full VM
         MainScreenContent(
-            uiState = MainUiState(
-                appState = AppState.IDLE,
-                delaySeconds = 5f,
-                isAiEnabled = true,
-                currentPose = null,
-                useFrontCamera = false
-            ),
+            uiState = MainUiState(appState = AppState.IDLE, delaySeconds = 10f, isAiEnabled = true, currentPose = null, useFrontCamera = false),
+            availableModules = emptyList(),
             onStartCapture = { _, _ -> },
             onStopCapture = {},
             onToggleRecording = {},
             onToggleAi = {},
             onToggleCamera = {},
-            onSetDelay = {}
+            onSetDelay = {},
+            onSelectModule = {}
         )
     }
 }

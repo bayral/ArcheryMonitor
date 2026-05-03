@@ -5,6 +5,12 @@
     android:viewportHeight="100">
 
     <!-- Rings from 1 to 10 (Outer to Inner) -->
+    <!-- Background Circle (to prevent transparency) -->
+    <path
+        android:fillColor="@color/target_white_opaque"
+        android:pathData="M50,50m-45,0a45,45 0,1 1,90 0a45,45 0,1 1,-90 0"/>
+
+    <!-- Rings from 1 to 10 (Outer to Inner) -->
     <!-- White Rings (1 & 2) -->
     <path
         android:fillColor="@color/target_white"

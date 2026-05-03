@@ -1,47 +1,59 @@
 # 🎯 Master Prompt : Archery Monitor
 
 ## 📌 Context & Goal
-Build a high-performance Android application (Target SDK 35) for archers.
-**Core Feature:** A delayed video feedback loop (0-30s) allowing the archer to shoot, then review their posture with a synchronized AI skeleton (MediaPipe) overlaid on the delayed footage.
+Build a high-performance Android application for archers, providing **real-time biomechanical coaching**.
+**Core Feature:** Delayed video feedback (0-30s) with a synchronized, intelligent AI skeleton (MediaPipe) overlaid on the delayed footage, featuring real-time biomechanical analysis.
 
 ---
 
 ## 🛠 1. Core Architecture Principles
-- **Circular Buffer:** Uses H.264 packets stored in a memory-mapped file (`mmap`) for efficient 30s buffering without OOM.
-- **Unified Clock:** Every frame and pose result is timestamped using `SystemClock.elapsedRealtimeNanos()` to ensure accurate replay anchoring.
-- **Battery Efficiency:** AI analysis is only triggered when recording is active and the AI toggle is ON.
-- **Device Compatibility:** Explicit YUV stride handling ensures correct AI detection on Google Pixel and similar hardware.
+- **Circular Buffer:** `mmap` circular buffer for zero-copy 30s video storage.
+- **Unified Clock:** `SystemClock.elapsedRealtimeNanos` for AI-Video timestamp synchronization.
+- **Battery Efficiency:** AI analysis is gated: Active ONLY when recording/buffering + AI toggle ON.
+- **Modular Analysis:** Analysis modules are pluggable; the user can select an analysis mode (or "None") from a localized list.
 
 ---
 
 ## 🏗 2. Software Modules
-- **:core:** Common interfaces, `ISyncEngine`, `IBufferManager`, and `MatrixUtils`.
-- **:feature-camera:** `CameraXProvider` (capture), `H264Encoder`, and `H264Decoder` (replay).
-- **:feature-ai:** `MediaPipePoseAnalyzer` and the upcoming `PostureAnalyzer`.
-- **:app:** Jetpack Compose UI, `MainViewModel`, and Localization.
+- **:core:** Common interfaces (`ISyncEngine`, `IPostureModule`), `IBufferManager`, `MatrixUtils`.
+- **:feature-camera:** `CameraXProvider` (capture), `H264Encoder`, `H264Decoder`.
+- **:feature-ai:** `MediaPipePoseAnalyzer` (data provider) + `PostureAnalysisEngine` (biomechanical logic engine).
+- **:app:** UI, `MainViewModel`, and Localization.
 
 ---
 
 ## 🚀 3. Key Technical Stabilizations
-- **Undistorted Display:** Replay uses `Modifier.requiredSize()` with manual scale calculation to achieve `FILL_CENTER` without squashing the video.
+- **Undistorted Display:** `FILL_CENTER` layout via `requiredSize()` to avoid stretching.
 - **Synchronized Overlay:** `SyncEngineImpl` matches video PTS with AI poses using a `TreeMap` with a 1s jitter tolerance.
-- **Purge Logic:** AI history is cleared on every toggle to eliminate "ghost skeletons".
-- **Resumption:** Automatic return to `BUFFERING` state on app resume during active recording.
+- **Ghost Removal:** `SyncEngine` history is purged on AI toggle or session restart.
+- **Device Support:** Manual YUV stride handling for correct AI detection on Pixel devices.
 
 ---
 
-## 🏹 4. Phase 5: Biomechanical Analysis (The Coach)
-The primary objective is to analyze the archer's technique using the AI landmarks:
-- **Shoulder Alignment:** Calculate the angle between left/right shoulders (ideal: horizontal).
-- **Verticality:** Measure the angle of the main body axis (spine) relative to the ground (ideal: 90°).
-- **Head Stability:** Track head movement during the "hold" phase.
-- **Visual Coaching:** Dynamic skeleton coloring (e.g., Red shoulders if tilted, Green if aligned).
-- **Hold Detection:** Identify the 2-3 second static phase before the shot to trigger specific stability metrics.
+## 🏹 4. Phase 5: Biomechanical Analysis (The MVP Coach)
+The application evaluates posture based on theoretical references. Feedback is trinary (Green/Yellow/Red).
+
+### A. General Posture Module (Lateral/Front View)
+* **Shoulder Alignment:** Angle between `L_SHOULDER` and `R_SHOULDER` relative to the horizon.
+    * **Green:** < 5° | **Yellow:** 5-12° | **Red:** > 12°.
+* **Body Lean (Stability):** Angle between the spine (Neck to Mid-Hips) and the gravity vertical.
+    * **Green:** < 3° | **Yellow:** 3-8° | **Red:** > 8°.
+
+### B. Alignment & Draw Module (Lateral View)
+* **Planar Alignment:** Angle of the Draw Arm (Wrist-Elbow) relative to the Arrow line.
+    * **Green:** 0° to 10° (upwards) | **Yellow:** > 15° or Negative | **Red:** Excessive misalignment.
+* **Hold Stability:** Variance of `WRIST` position during the last 2 seconds of the aiming phase.
+
+### C. Release Module (Dynamic)
+* **Follow-Through Trajectory:** Comparison of `ELBOW` position at $T_{release}$ and $T_{release} + 500ms$.
+    * **Green:** Positive backward movement | **Red:** "Dead" release or forward collapse.
 
 ---
 
 ## 📦 5. Core Implementation Requirements
-1. **Geometric Precision:** Use 2D vector math and trigonometry for all angle calculations.
-2. **Matrix Mapping:** Use `Matrix.mapPoints` for all skeleton rendering.
-3. **Performance:** Posture analysis calculations must be efficient enough to run alongside video decoding.
-4. **Lifecycle Aware:** Always release Camera and Codec resources in `ON_PAUSE`.
+1. **Geometric Precision:** Use 2D vector math (atan2/dot products) for all angle calculations.
+2. **Dynamic Coloring:** Skeleton segment coloring (Green/Yellow/Red) applied per frame.
+3. **Calibration Mode:** UI overlay guide to help the user position the tripod at the correct distance/angle.
+4. **Data Persistence:** Log raw Landmark coordinates during sessions for offline refinement.
+5. **Localization:** String resources for EN, FR, IT (including "None" for analysis).
+6. **Efficiency:** Analysis runs on background threads; heavy calculations are gated by AI toggle.

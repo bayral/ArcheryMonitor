@@ -17,16 +17,41 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.abs
 
+/**
+ * H.264 Video Decoder for delayed replay playback.
+ *
+ * This class retrieves encoded packets from the [IBufferManager] based on a target delay,
+ * feeds them into a [MediaCodec] decoder, and outputs the decoded frames to a [Surface].
+ *
+ * @property bufferManager Source of encoded H.264 packets.
+ */
 class H264Decoder @Inject constructor(
     private val bufferManager: IBufferManager
 ) {
+    /** The Android hardware codec instance. */
     private var mediaCodec: MediaCodec? = null
+
+    /** Job for the asynchronous decoding and playback loop. */
     private var decoderJob: Job? = null
+
+    /** Coroutine scope for playback timing and polling. */
     private val scope = CoroutineScope(Dispatchers.Default)
 
+    /** Internal flow for tracking the current frame's presentation timestamp. */
     private val _currentPlaybackTimestamp = MutableStateFlow(0L)
+
+    /** [StateFlow] emitting the timestamp of the frame currently being displayed. */
     val currentPlaybackTimestamp: StateFlow<Long> = _currentPlaybackTimestamp.asStateFlow()
 
+    /**
+     * Starts the decoder and the playback loop.
+     *
+     * @param surface The destination surface for video output.
+     * @param width Expected frame width.
+     * @param height Expected frame height.
+     * @param delaySeconds The replay delay in seconds.
+     * @param onStarted Callback invoked once the decoder is initialized.
+     */
     fun start(surface: Surface, width: Int, height: Int, delaySeconds: Float, onStarted: () -> Unit) {
         stop()
         Log.d("H264Decoder", "STARTING DECODER V3 - Delay: ${delaySeconds}s")
@@ -54,6 +79,7 @@ class H264Decoder @Inject constructor(
             return
         }
 
+        // Main Playback Coroutine
         decoderJob = scope.launch {
             val info = MediaCodec.BufferInfo()
             var lastQueuedPts = -1L
@@ -67,10 +93,14 @@ class H264Decoder @Inject constructor(
                     continue
                 }
 
+                // Target timestamp based on configured delay
                 val targetTimeUs = latestPts - (delaySeconds * 1_000_000).toLong()
+                
+                // Fetch candidate packets near the target time
                 val packets = bufferManager.getPacketsForRange(targetTimeUs - 100_000, targetTimeUs + 100_000)
 
                 if (packets.isNotEmpty()) {
+                    // Pick the best match that hasn't been queued yet
                     val packet = packets
                         .filter { it.info.presentationTimeUs > lastQueuedPts }
                         .minByOrNull { abs(it.info.presentationTimeUs - targetTimeUs) }
@@ -99,9 +129,11 @@ class H264Decoder @Inject constructor(
                     }
                 }
 
+                // Polling for output buffers (decoded pixels)
                 try {
                     var outputBufferIndex = codec.dequeueOutputBuffer(info, 5000)
                     while (outputBufferIndex >= 0) {
+                        // Render to surface and broadcast timestamp for AI sync
                         codec.releaseOutputBuffer(outputBufferIndex, true)
                         _currentPlaybackTimestamp.value = info.presentationTimeUs
                         outputBufferIndex = codec.dequeueOutputBuffer(info, 0)
@@ -116,6 +148,9 @@ class H264Decoder @Inject constructor(
         }
     }
 
+    /**
+     * Cancels the playback loop and releases hardware resources.
+     */
     fun stop() {
         decoderJob?.cancel()
         decoderJob = null

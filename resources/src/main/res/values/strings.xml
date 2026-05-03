@@ -9,4 +9,6 @@
     <string name="btn_ai_on">Turn AI ON</string>
     <string name="btn_camera_back">Back</string>
     <string name="btn_camera_front">Front</string>
+    <string name="label_none">None</string>
+    <string name="label_posture_general">General Posture</string>
 </resources>
