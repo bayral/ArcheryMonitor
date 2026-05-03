@@ -100,12 +100,18 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Intercepts hardware key events.
-     * Maps VOLUME_UP to toggle recording (for Bluetooth remote compatibility).
+     * Maps VOLUME_UP to toggle recording and VOLUME_DOWN to toggle AI.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            viewModel.toggleRecording()
-            return true
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                viewModel.toggleRecording()
+                return true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                viewModel.toggleAi()
+                return true
+            }
         }
         return super.onKeyDown(keyCode, event)
     }

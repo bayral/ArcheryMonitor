@@ -7,14 +7,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import fr.bayral.archerymonitor.core.interfaces.AnalysisResult
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
+import kotlin.math.abs
 
 /**
  * High-contrast skeleton overlay for outdoor archery posture review.
  *
  * This component draws the joints and bones detected by the AI using a neon yellow
- * center and black outlines to ensure maximum visibility in sunlight.
+ * center and black outlines to ensure maximum visibility in sunlight. It now also
+ * draws facial landmarks and an oval around the head.
  *
  * @param poseResult The current synchronized pose to display.
  * @param analysisResult The current analysis result for colorization.
@@ -42,7 +45,14 @@ fun SkeletonOverlay(
 
         /** Helper to retrieve pixel coordinates for a specific landmark index. */
         fun getOffset(index: Int): Offset {
-            return Offset(mappedPoints[index * 2], mappedPoints[index * 2 + 1])
+            // Ensure index is within bounds to prevent crashes if poseResult.landmarks is shorter than expected.
+            if (index * 2 + 1 < mappedPoints.size) {
+                return Offset(mappedPoints[index * 2], mappedPoints[index * 2 + 1])
+            }
+            // Return a default offset or handle error if index is out of bounds
+            // For now, returning (0,0) which might draw points at the top-left if index is too high.
+            // A more robust solution might involve checking poseResult.landmarks.size before calling getOffset.
+            return Offset.Zero 
         }
 
         // Define body segment connections (MediaPipe index mapping)
@@ -52,17 +62,20 @@ fun SkeletonOverlay(
             Pair(12, 14), Pair(14, 16), // Right arm
             Pair(11, 23), Pair(12, 24), // Torso
             Pair(23, 24), // Hips
-            Pair(23, 25), Pair(25, 27), // Left leg
-            Pair(24, 26), Pair(26, 28)  // Right leg
+            Pair(23, 25), Pair(25, 27), Pair(27, 29), Pair(27, 31), // Left leg & foot
+            Pair(24, 26), Pair(26, 28), Pair(28, 30), Pair(28, 32)  // Right leg & foot
         )
 
         // Draw connections with double-layer (outline + neon center)
         connections.forEach { (start, end) ->
+            // Check if both start and end landmarks are within the detected landmarks' range
             if (start < poseResult.landmarks.size && end < poseResult.landmarks.size) {
                 val p1 = getOffset(start)
                 val p2 = getOffset(end)
                 
                 // If analysis provides a color for joints, use it, else default to Yellow
+                // Note: analysisResult?.jointColors might only have colors for specific joints.
+                // We might need to fallback to a default color for connections if specific joint colors aren't found.
                 val color = analysisResult?.jointColors?.get(start)?.let { Color(it) } ?: Color.Yellow
 
                 drawLine(color = Color.Black, start = p1, end = p2, strokeWidth = 10f)
@@ -70,14 +83,59 @@ fun SkeletonOverlay(
             }
         }
 
-        // Draw individual joint circles
+        // Draw individual joint circles for all detected landmarks
         poseResult.landmarks.forEachIndexed { index, _ ->
-            if (index in 11..28) { // Focus on major body joints
-                val center = getOffset(index)
-                val color = analysisResult?.jointColors?.get(index)?.let { Color(it) } ?: Color.Yellow
-                drawCircle(Color.Black, radius = 8f, center = center)
-                drawCircle(color, radius = 4f, center = center)
-            }
+            val center = getOffset(index)
+            // Use specific color if available from analysis, otherwise default to Yellow
+            val jointColor = analysisResult?.jointColors?.get(index)?.let { Color(it) } ?: Color.Yellow
+            
+            // Draw black outline circle
+            drawCircle(Color.Black, radius = 8f, center = center)
+            // Draw colored inner circle
+            drawCircle(jointColor, radius = 4f, center = center)
+        }
+
+        // Draw head oval if landmarks 0 (nose), 7 (left ear), and 8 (right ear) are available
+        if (poseResult.landmarks.size > 8) { // Ensure we have landmarks up to index 8
+            val leftEarOffset = getOffset(7)
+            val rightEarOffset = getOffset(8)
+            val noseOffset = getOffset(0)
+
+            // Calculate head center and dimensions based on ears and nose
+            // Center X is the midpoint between the ears.
+            val headCenterX = (leftEarOffset.x + rightEarOffset.x) / 2f
+            // Center Y is estimated as the midpoint between the nose's Y and the ears' average Y.
+            // This places the oval vertically centered between the nose and the ears.
+            val headCenterY = (noseOffset.y + (leftEarOffset.y + rightEarOffset.y) / 2f) / 2f
+
+            // Head width is the distance between the ears.
+            val headWidth = abs(rightEarOffset.x - leftEarOffset.x)
+            // Head height is estimated as a ratio of the width. 1.2 is an approximation, can be tuned.
+            val headHeight = headWidth * 1.2f 
+
+            // Define oval bounds (top-left corner and size)
+            val ovalLeft = headCenterX - headWidth / 2f
+            val ovalTop = headCenterY - headHeight / 2f
+            val ovalRight = headCenterX + headWidth / 2f
+            val ovalBottom = headCenterY + headHeight / 2f
+
+            // Define colors for the head oval. Using Gray for contrast.
+            val ovalOutlineColor = Color.Gray
+            val ovalFillColor = Color.Gray.copy(alpha = 0.3f) // Semi-transparent fill for better visibility
+
+            // Draw the head oval outline
+            drawOval(
+                color = ovalOutlineColor,
+                style = Stroke(width = 6f), // Outline thickness
+                topLeft = Offset(ovalLeft, ovalTop),
+                size = androidx.compose.ui.geometry.Size(headWidth, headHeight)
+            )
+            // Draw the head oval fill
+            drawOval(
+                color = ovalFillColor,
+                topLeft = Offset(ovalLeft, ovalTop),
+                size = androidx.compose.ui.geometry.Size(headWidth, headHeight)
+            )
         }
     }
 }
