@@ -4,6 +4,8 @@ on:
     push:
         tags:
             - 'v*' # Se déclenche uniquement pour les tags comme v1.0, v0.1, etc.
+permissions:
+    contents: write
 
 jobs:
     build:
