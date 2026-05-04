@@ -32,12 +32,6 @@ fun SkeletonOverlay(
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier.fillMaxSize()) {
-        // --- DIAGNOSTIC DOT ---
-        // This blue dot should ALWAYS be visible when AI is enabled.
-        // If you see it but no skeleton, then AI detection is failing.
-        // If you don't see it, then the entire overlay is hidden or behind the video.
-        drawCircle(color = Color.Blue, radius = 20f, center = Offset(100f, 100f))
-
         if (poseResult == null) return@Canvas
 
         // Map normalized landmarks to display pixels

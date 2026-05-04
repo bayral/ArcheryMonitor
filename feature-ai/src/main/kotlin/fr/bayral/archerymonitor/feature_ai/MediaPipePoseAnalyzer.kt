@@ -224,6 +224,5 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
         _poseResults.value = poseResult
         syncEngine.addPoseResult(poseResult)
-        Log.d("MediaPipePoseAnalyzer", "Pose detected! Timestamp: $timestampUs, Landmarks: ${poseResult.landmarks.size}")
     }
 }
