@@ -20,4 +20,5 @@
     <string name="label_bow_recurve">Classique</string>
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Poulies</string>
+    <string name="title_trophies">Espace Trophées</string>
 </resources>

@@ -3,6 +3,9 @@ package fr.bayral.archerymonitor.ui
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -32,6 +35,7 @@ import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
 fun MainScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val lastBadge by viewModel.lastUnlockedBadge.collectAsState()
+    var showTrophies by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MainScreenContent(
@@ -48,7 +52,7 @@ fun MainScreen(viewModel: MainViewModel) {
             onSelectModule = { viewModel.selectModule(it) },
             onSetLaterality = { viewModel.setLaterality(it) },
             onSetBowType = { viewModel.setBowType(it) },
-            onShowTrophies = {}, // Placeholder
+            onShowTrophies = { showTrophies = true },
             onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
         )
 
@@ -60,7 +64,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 result.score >= 0.60f -> Color.Yellow
                 else -> Color.Red
             }
-            
+
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -77,31 +81,82 @@ fun MainScreen(viewModel: MainViewModel) {
             }
         }
 
-        // 2. Badge Notification Banner (Top Center)
-        lastBadge?.let { (badgeId, icon) ->
-            // Find badge definition for label
-            val badgeName = viewModel.getBadgeDefinitions().find { it.id == badgeId }?.labelResId?.let { stringResource(it) } ?: badgeId
-            
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 100.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = MaterialTheme.shapes.extraLarge,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+        // 2. Badge Notification Banner (Animated)
+        AnimatedVisibility(
+            visible = lastBadge != null,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 80.dp)
+        ) {
+            lastBadge?.let { (badgeId, icon) ->
+                val badgeName = viewModel.getBadgeDefinitions().find { it.id == badgeId }?.labelResId?.let { stringResource(it) } ?: badgeId
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    shadowElevation = 8.dp
                 ) {
-                    Text(icon, style = MaterialTheme.typography.headlineMedium)
-                    Column {
-                        Text(stringResource(R.string.badge_unlocked_title), style = MaterialTheme.typography.labelSmall)
-                        Text(badgeName, style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(icon, style = MaterialTheme.typography.headlineMedium)
+                        Column {
+                            Text(stringResource(R.string.badge_unlocked_title), style = MaterialTheme.typography.labelSmall)
+                            Text(badgeName, style = MaterialTheme.typography.titleMedium)
+                        }
                     }
                 }
             }
+        }
+
+        // 3. Trophy Room Dialog
+        if (showTrophies) {
+            AlertDialog(
+                onDismissRequest = { showTrophies = false },
+                title = { Text(stringResource(R.string.title_trophies)) },
+                text = {
+                    val unlocked = viewModel.unlockedBadges
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        viewModel.getBadgeDefinitions().forEach { badge ->
+                            val isUnlocked = unlocked.contains(badge.id)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isUnlocked) viewModel.getBadgeIcon(badge.id) else "🔒",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = stringResource(badge.labelResId),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = if (isUnlocked) Color.Unspecified else Color.Gray
+                                    )
+                                    Text(
+                                        text = "${(badge.minScore * 100).toInt()}% / ${badge.durationSeconds}s",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showTrophies = false }) { Text("OK") }
+                }
+            )
+        }
+
+        // 4. Trophy Button
+        IconButton(
+            onClick = { showTrophies = true },
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 16.dp, end = 16.dp)
+        ) {
+            Text("🏆", style = MaterialTheme.typography.headlineSmall)
         }
     }
 }
