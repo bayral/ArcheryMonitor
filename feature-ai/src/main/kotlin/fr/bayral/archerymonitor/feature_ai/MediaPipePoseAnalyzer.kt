@@ -28,7 +28,7 @@ import javax.inject.Singleton
  * ## Technical Constraints & Stabilizations:
  * - **Stride Handling:** Modern Android devices (like Google Pixel) often have YUV plane strides
  *   larger than the image width. This implementation manually copies pixels line-by-line in
- *   [toBitmap] to avoid image skewing.
+ *   [toOptimizedBitmap] to avoid image skewing.
  * - **Clock Synchronization:** To ensure AI skeletons are correctly anchored to delayed video frames,
  *   this class uses a unified timestamp (microseconds) shared with the video encoder.
  * - **Error Recovery:** Automatically falls back from GPU to CPU delegate if hardware acceleration
@@ -48,6 +48,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
     /** Buffer for pixels to avoid allocating IntArray every frame. */
     private var pixelBuffer: IntArray? = null
+
+    /** Flag indicating if GPU acceleration is currently active. */
+    private var isGpuEnabled = false
 
     /** Backing property for [poseResults] flow. */
     private val _poseResults = MutableStateFlow<PoseResult?>(null)
@@ -83,6 +86,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
+            isGpuEnabled = true
             Log.d("MediaPipePoseAnalyzer", "PoseLandmarker initialized with GPU")
         } catch (e: Exception) {
             Log.w("MediaPipePoseAnalyzer", "GPU initialization failed, falling back to CPU", e)
@@ -95,6 +99,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
      */
     private fun setupPoseLandmarkerCpu() {
         try {
+            isGpuEnabled = false
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("pose_landmarker_full.task")
                 .setDelegate(Delegate.CPU)
@@ -129,9 +134,42 @@ class MediaPipePoseAnalyzer @Inject constructor(
             // MediaPipe detectAsync expects milliseconds (ms).
             val bitmap = image.toOptimizedBitmap() ?: return
             val mpImage = BitmapImageBuilder(bitmap).build()
-            poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
-        } catch (e: Exception) {
+            
+            synchronized(this) {
+                poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
+            }
+        } catch (e: Throwable) {
             Log.e("MediaPipePoseAnalyzer", "Analysis failed: ${e.message}")
+            
+            // Handle specific GPU errors that occur during execution but aren't caught in init.
+            val errorMsg = e.toString().lowercase()
+            val isGlError = errorMsg.contains("gl_") || 
+                           errorMsg.contains("invalid enum") || 
+                           errorMsg.contains("graph has errors")
+
+            if (isGpuEnabled && isGlError) {
+                Log.w("MediaPipePoseAnalyzer", "GPU error detected during execution, falling back to CPU...")
+                fallbackToCpu()
+            }
+        }
+    }
+
+    /**
+     * Switch to CPU delegate safely when GPU fails during runtime.
+     */
+    private fun fallbackToCpu() {
+        synchronized(this) {
+            if (!isGpuEnabled) return // Already falling back or on CPU
+
+            isGpuEnabled = false
+            try {
+                poseLandmarker?.close()
+            } catch (e: Exception) {
+                Log.e("MediaPipePoseAnalyzer", "Error closing failing GPU landmarker", e)
+            } finally {
+                poseLandmarker = null
+            }
+            setupPoseLandmarkerCpu()
         }
     }
 
