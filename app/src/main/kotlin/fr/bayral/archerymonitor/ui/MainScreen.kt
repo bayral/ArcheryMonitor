@@ -31,24 +31,79 @@ import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val lastBadge by viewModel.lastUnlockedBadge.collectAsState()
 
-    MainScreenContent(
-        uiState = uiState,
-        availableModules = viewModel.getAvailableModules(),
-        onStartCapture = { lifecycleOwner, surfaceProvider ->
-            viewModel.onStartCapture(lifecycleOwner, surfaceProvider)
-        },
-        onStopCapture = { viewModel.stopCapture() },
-        onToggleRecording = { viewModel.toggleRecording() },
-        onToggleAi = { viewModel.toggleAi() },
-        onToggleCamera = { viewModel.toggleCamera() },
-        onSetDelay = { viewModel.setDelay(it) },
-        onSelectModule = { viewModel.selectModule(it) },
-        onSetLaterality = { viewModel.setLaterality(it) },
-        onSetBowType = { viewModel.setBowType(it) },
-        onShowTrophies = {}, // Placeholder
-        onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        MainScreenContent(
+            uiState = uiState,
+            availableModules = viewModel.getAvailableModules(),
+            onStartCapture = { lifecycleOwner, surfaceProvider ->
+                viewModel.onStartCapture(lifecycleOwner, surfaceProvider)
+            },
+            onStopCapture = { viewModel.stopCapture() },
+            onToggleRecording = { viewModel.toggleRecording() },
+            onToggleAi = { viewModel.toggleAi() },
+            onToggleCamera = { viewModel.toggleCamera() },
+            onSetDelay = { viewModel.setDelay(it) },
+            onSelectModule = { viewModel.selectModule(it) },
+            onSetLaterality = { viewModel.setLaterality(it) },
+            onSetBowType = { viewModel.setBowType(it) },
+            onShowTrophies = {}, // Placeholder
+            onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
+        )
+
+        // 1. Score Display (Top Right)
+        uiState.analysisResult?.let { result ->
+            val scorePercent = (result.score * 100).toInt()
+            val scoreColor = when {
+                result.score >= 0.85f -> Color.Green
+                result.score >= 0.60f -> Color.Yellow
+                else -> Color.Red
+            }
+            
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 90.dp, end = 16.dp),
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = "$scorePercent%",
+                    color = scoreColor,
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // 2. Badge Notification Banner (Top Center)
+        lastBadge?.let { (badgeId, icon) ->
+            // Find badge definition for label
+            val badgeName = viewModel.getBadgeDefinitions().find { it.id == badgeId }?.labelResId?.let { stringResource(it) } ?: badgeId
+            
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 100.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.extraLarge,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(icon, style = MaterialTheme.typography.headlineMedium)
+                    Column {
+                        Text(stringResource(R.string.badge_unlocked_title), style = MaterialTheme.typography.labelSmall)
+                        Text(badgeName, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

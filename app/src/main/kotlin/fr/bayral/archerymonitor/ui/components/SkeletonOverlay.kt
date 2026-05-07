@@ -83,6 +83,42 @@ fun SkeletonOverlay(
             }
         }
 
+        // Draw facial landmarks and head oval logic (if landmarks available)
+        // ... (existing code for head)
+
+        // DRAW ANALYSIS SEGMENTS (New logic)
+        // These are custom segments provided by the analysis module (e.g., body axis, arm alignment)
+        analysisResult?.segments?.forEach { segment ->
+            val p1: Offset
+            val p2: Offset
+
+            val startC = segment.startCustom
+            val endC = segment.endCustom
+
+            if (startC != null && endC != null) {
+                // Map custom points (like mid-shoulder or mid-hip) using the transformation matrix
+                val pts = floatArrayOf(
+                    startC.x, startC.y,
+                    endC.x, endC.y
+                )
+                transformationMatrix.mapPoints(pts)
+                p1 = Offset(pts[0], pts[1])
+                p2 = Offset(pts[2], pts[3])
+            } else if (segment.startLandmarkIndex != -1 && segment.endLandmarkIndex != -1) {
+                // Use existing mapped landmark points
+                if (segment.startLandmarkIndex < poseResult.landmarks.size && 
+                    segment.endLandmarkIndex < poseResult.landmarks.size) {
+                    p1 = getOffset(segment.startLandmarkIndex)
+                    p2 = getOffset(segment.endLandmarkIndex)
+                } else return@forEach
+            } else return@forEach
+
+            val color = Color(segment.color)
+            // Draw analysis segments with thicker lines to stand out from the base skeleton
+            drawLine(color = Color.Black, start = p1, end = p2, strokeWidth = 14f)
+            drawLine(color = color, start = p1, end = p2, strokeWidth = 8f)
+        }
+
         // Draw individual joint circles for all detected landmarks
         poseResult.landmarks.forEachIndexed { index, _ ->
             val center = getOffset(index)

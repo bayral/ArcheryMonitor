@@ -11,4 +11,13 @@
     <string name="btn_camera_front">Avant</string>
     <string name="label_none">Aucun</string>
     <string name="label_posture_general">Posture générale</string>
+    <string name="badge_perfect_1s">Perfection 1s</string>
+    <string name="badge_solid_5s">Solide 5s</string>
+    <string name="badge_statue_15s">Statue 15s</string>
+    <string name="badge_unlocked_title">Nouveau Badge Débloqué !</string>
+    <string name="label_right_handed">Droitier</string>
+    <string name="label_left_handed">Gaucher</string>
+    <string name="label_bow_recurve">Classique</string>
+    <string name="label_bow_barebow">Barebow</string>
+    <string name="label_bow_compound">Poulies</string>
 </resources>
