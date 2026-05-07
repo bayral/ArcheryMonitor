@@ -46,6 +46,9 @@ class MediaPipePoseAnalyzer @Inject constructor(
     /** Internal reference to the MediaPipe PoseLandmarker instance. */
     private var poseLandmarker: PoseLandmarker? = null
 
+    /** Buffer for pixels to avoid allocating IntArray every frame. */
+    private var pixelBuffer: IntArray? = null
+
     /** Backing property for [poseResults] flow. */
     private val _poseResults = MutableStateFlow<PoseResult?>(null)
 
@@ -124,7 +127,7 @@ class MediaPipePoseAnalyzer @Inject constructor(
     override fun analyze(image: Image, timestamp: Long) {
         try {
             // MediaPipe detectAsync expects milliseconds (ms).
-            val bitmap = image.toBitmap() ?: return
+            val bitmap = image.toOptimizedBitmap() ?: return
             val mpImage = BitmapImageBuilder(bitmap).build()
             poseLandmarker?.detectAsync(mpImage, timestamp / 1000)
         } catch (e: Exception) {
@@ -133,17 +136,23 @@ class MediaPipePoseAnalyzer @Inject constructor(
     }
 
     /**
-     * Converts a YUV [Image] into a [Bitmap] while strictly respecting row strides.
-     *
-     * This method handles the potential gap between pixel data and row width in the YUV buffer,
-     * ensuring that the resulting image isn't skewed or corrupted on devices like Pixel 7.
+     * Optimized version of YUV to Bitmap conversion.
+     * Avoids heavy JPEG compression/decompression by manually converting YUV planes to ARGB.
      *
      * @return A [Bitmap] containing the frame pixels, or null if conversion fails.
      */
-    private fun Image.toBitmap(): Bitmap? {
+    private fun Image.toOptimizedBitmap(): Bitmap? {
         try {
-            val width = width
-            val height = height
+            val w = width
+            val h = height
+
+            // Buffer for pixels can be reused safely as it's used only during conversion
+            if (pixelBuffer == null || pixelBuffer?.size != w * h) {
+                pixelBuffer = IntArray(w * h)
+            }
+
+            val pixels = pixelBuffer ?: return null
+            
             val yPlane = planes[0]
             val uPlane = planes[1]
             val vPlane = planes[2]
@@ -152,37 +161,38 @@ class MediaPipePoseAnalyzer @Inject constructor(
             val uBuffer = uPlane.buffer
             val vBuffer = vPlane.buffer
 
-            val yStride = yPlane.rowStride
-            val uvStride = uPlane.rowStride
+            val yRowStride = yPlane.rowStride
+            val uvRowStride = uPlane.rowStride
             val uvPixelStride = uPlane.pixelStride
 
-            val nv21 = ByteArray(width * height * 3 / 2)
-            var idY = 0
-            var idUV = width * height
+            for (y in 0 until h) {
+                val yOffset = y * yRowStride
+                val uvYOffset = (y / 2) * uvRowStride
 
-            // Copy Y plane handling potential padding (strides)
-            for (y in 0 until height) {
-                yBuffer.position(y * yStride)
-                yBuffer.get(nv21, idY, width)
-                idY += width
-            }
+                for (x in 0 until w) {
+                    val uvXOffset = (x / 2) * uvPixelStride
 
-            // Copy interleaved UV planes handling strides
-            for (y in 0 until height / 2) {
-                for (x in 0 until width / 2) {
-                    val uvPos = y * uvStride + x * uvPixelStride
-                    nv21[idUV++] = vBuffer.get(uvPos)
-                    nv21[idUV++] = uBuffer.get(uvPos)
+                    val yVal = (yBuffer.get(yOffset + x).toInt() and 0xFF)
+                    val uVal = (uBuffer.get(uvYOffset + uvXOffset).toInt() and 0xFF) - 128
+                    val vVal = (vBuffer.get(uvYOffset + uvXOffset).toInt() and 0xFF) - 128
+
+                    var r = (yVal + 1.370705f * vVal).toInt()
+                    var g = (yVal - 0.337633f * uVal - 0.698001f * vVal).toInt()
+                    var b = (yVal + 1.732446f * uVal).toInt()
+
+                    r = r.coerceIn(0, 255)
+                    g = g.coerceIn(0, 255)
+                    b = b.coerceIn(0, 255)
+
+                    pixels[y * w + x] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
                 }
             }
 
-            val yuvImage = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, width, height, null)
-            val out = java.io.ByteArrayOutputStream()
-            yuvImage.compressToJpeg(android.graphics.Rect(0, 0, width, height), 100, out)
-            val imageBytes = out.toByteArray()
-            return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            val outBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            outBitmap.setPixels(pixels, 0, w, 0, 0, w, h)
+            return outBitmap
         } catch (e: Exception) {
-            Log.e("MediaPipePoseAnalyzer", "Bitmap conversion failed", e)
+            Log.e("MediaPipePoseAnalyzer", "Optimized Bitmap conversion failed", e)
             return null
         }
     }
