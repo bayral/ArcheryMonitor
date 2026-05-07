@@ -159,8 +159,13 @@ class CameraXProvider @Inject constructor(
                         frameCount++
                         // HARMONIZED CLOCK: Use the same reference for both AI and Replay buffer.
                         val ts = SystemClock.elapsedRealtimeNanos() / 1000
-                        lowResAnalysis(image, ts)
-                        
+
+                        // OPTIMIZATION: AI analysis is CPU-intensive. Process only 1 frame out of N.
+                        // This reduces load significantly without impacting the user-facing video quality.
+                        if (frameCount % AI_ANALYSIS_SKIP_FACTOR == 0) {
+                            lowResAnalysis(image, ts)
+                        }
+
                         if (isRecording) {
                             if (!encoder.isEncoding) {
                                 encoder.start()
@@ -204,5 +209,13 @@ class CameraXProvider @Inject constructor(
         Log.d("CameraXProvider", "stopCapture called")
         cameraProvider?.unbindAll()
         encoder.stop()
+    }
+
+    companion object {
+        /** 
+         * AI skip factor: 2 means process every 2nd frame. 
+         * Reduces CPU load by 50% for AI while keeping video at full FPS.
+         */
+        private const val AI_ANALYSIS_SKIP_FACTOR = 2
     }
 }
