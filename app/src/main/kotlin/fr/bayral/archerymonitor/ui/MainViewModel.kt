@@ -232,6 +232,34 @@ class MainViewModel @Inject constructor(
         settingsManager.useFrontCamera = newUseFront
     }
 
+    fun setLaterality(laterality: Laterality) {
+        val newSettings = _uiState.value.archerySettings.copy(laterality = laterality)
+        settingsManager.laterality = laterality
+        
+        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
+        val currentModule = _uiState.value.selectedModule
+        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
+
+        _uiState.value = _uiState.value.copy(
+            archerySettings = newSettings,
+            selectedModule = newSelected
+        )
+    }
+
+    fun setBowType(bowType: BowType) {
+        val newSettings = _uiState.value.archerySettings.copy(bowType = bowType)
+        settingsManager.bowType = bowType
+
+        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
+        val currentModule = _uiState.value.selectedModule
+        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
+
+        _uiState.value = _uiState.value.copy(
+            archerySettings = newSettings,
+            selectedModule = newSelected
+        )
+    }
+
     fun stopCapture() {
         cameraProvider.stopCapture()
         decoder.stop()

@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.stringResource
 import fr.bayral.archerymonitor.resources.R
 import fr.bayral.archerymonitor.core.interfaces.AppState
+import fr.bayral.archerymonitor.core.interfaces.BowType
 import fr.bayral.archerymonitor.core.interfaces.IPostureModule
+import fr.bayral.archerymonitor.core.interfaces.Laterality
 import fr.bayral.archerymonitor.core.utils.MatrixUtils
 import fr.bayral.archerymonitor.ui.components.SkeletonOverlay
 import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
@@ -42,9 +44,11 @@ fun MainScreen(viewModel: MainViewModel) {
         onToggleCamera = { viewModel.toggleCamera() },
         onSetDelay = { viewModel.setDelay(it) },
         onSelectModule = { viewModel.selectModule(it) },
-    ) {
-        viewModel.startDelayedPlayback(it)
-    }
+        onSetLaterality = { viewModel.setLaterality(it) },
+        onSetBowType = { viewModel.setBowType(it) },
+        onShowTrophies = {}, // Placeholder
+        onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
+    )
 }
 
 @Composable
@@ -58,6 +62,9 @@ fun MainScreenContent(
     onToggleCamera: () -> Unit,
     onSetDelay: (Float) -> Unit,
     onSelectModule: (IPostureModule?) -> Unit,
+    onSetLaterality: (Laterality) -> Unit,
+    onSetBowType: (BowType) -> Unit,
+    onShowTrophies: () -> Unit,
     onSurfaceCreated: (android.view.Surface) -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -202,9 +209,38 @@ fun MainScreenContent(
                         )
                     }
                 }
-            }
-        }
+                }
 
+                // Archer Settings Row (Laterality & BowType)
+                if (uiState.isAiEnabled) {
+                Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Laterality Selector
+                    var latExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        FilledTonalButton(onClick = { latExpanded = true }) {
+                            Text(if (uiState.archerySettings.laterality == Laterality.RIGHT_HANDED) "R" else "L")
+                        }
+                        DropdownMenu(expanded = latExpanded, onDismissRequest = { latExpanded = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.label_right_handed)) }, onClick = { onSetLaterality(Laterality.RIGHT_HANDED); latExpanded = false })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.label_left_handed)) }, onClick = { onSetLaterality(Laterality.LEFT_HANDED); latExpanded = false })
+                        }
+                    }
+
+                    // Bow Type Selector
+                    var bowExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        FilledTonalButton(onClick = { bowExpanded = true }) {
+                            Text(uiState.archerySettings.bowType.name)
+                        }
+                        DropdownMenu(expanded = bowExpanded, onDismissRequest = { bowExpanded = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_recurve)) }, onClick = { onSetBowType(BowType.RECURVE); bowExpanded = false })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_barebow)) }, onClick = { onSetBowType(BowType.BAREBOW); bowExpanded = false })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_compound)) }, onClick = { onSetBowType(BowType.COMPOUND); bowExpanded = false })
+                        }
+                    }
+                }
+                }
+                }
         if (uiState.appState == AppState.BUFFERING) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))

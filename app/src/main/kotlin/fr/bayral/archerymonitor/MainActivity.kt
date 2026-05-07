@@ -162,7 +162,11 @@ fun MainPreview() {
             onToggleAi = {},
             onToggleCamera = {},
             onSetDelay = {},
-            onSelectModule = {}
+            onSelectModule = {},
+            onSetLaterality = {},
+            onSetBowType = {},
+            onShowTrophies = {},
+            onSurfaceCreated = {}
         )
     }
 }

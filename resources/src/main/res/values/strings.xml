@@ -13,4 +13,9 @@
     <string name="badge_perfect_1s">Perfect 1s</string>
     <string name="badge_solid_5s">Solid 5s</string>
     <string name="badge_statue_15s">Statue 15s</string>
+    <string name="label_right_handed">Right-handed</string>
+    <string name="label_left_handed">Left-handed</string>
+    <string name="label_bow_recurve">Recurve</string>
+    <string name="label_bow_barebow">Barebow</string>
+    <string name="label_bow_compound">Compound</string>
 </resources>
