@@ -136,19 +136,24 @@ class MediaPipePoseAnalyzer @Inject constructor(
     }
 
     /**
-     * Optimized version of YUV to Bitmap conversion.
-     * Avoids heavy JPEG compression/decompression by manually converting YUV planes to ARGB.
+     * Optimized version of YUV to Bitmap conversion with integrated downscaling.
+     * Avoids heavy JPEG compression/decompression and reduces AI workload by resizing 
+     * the image to [TARGET_WIDTH].
      *
-     * @return A [Bitmap] containing the frame pixels, or null if conversion fails.
+     * @return A [Bitmap] containing the resized frame pixels, or null if conversion fails.
      */
     private fun Image.toOptimizedBitmap(): Bitmap? {
         try {
-            val w = width
-            val h = height
+            val srcW = width
+            val srcH = height
+            
+            // Calculate target dimensions (maintaining aspect ratio)
+            val targetW = TARGET_WIDTH
+            val targetH = (srcH * TARGET_WIDTH) / srcW
 
             // Buffer for pixels can be reused safely as it's used only during conversion
-            if (pixelBuffer == null || pixelBuffer?.size != w * h) {
-                pixelBuffer = IntArray(w * h)
+            if (pixelBuffer == null || pixelBuffer?.size != targetW * targetH) {
+                pixelBuffer = IntArray(targetW * targetH)
             }
 
             val pixels = pixelBuffer ?: return null
@@ -165,14 +170,22 @@ class MediaPipePoseAnalyzer @Inject constructor(
             val uvRowStride = uPlane.rowStride
             val uvPixelStride = uPlane.pixelStride
 
-            for (y in 0 until h) {
-                val yOffset = y * yRowStride
-                val uvYOffset = (y / 2) * uvRowStride
+            // Scaling factors
+            val scaleX = srcW.toFloat() / targetW
+            val scaleY = srcH.toFloat() / targetH
 
-                for (x in 0 until w) {
-                    val uvXOffset = (x / 2) * uvPixelStride
+            for (y in 0 until targetH) {
+                // Map target Y to source Y (Nearest Neighbor)
+                val srcY = (y * scaleY).toInt().coerceIn(0, srcH - 1)
+                val yOffset = srcY * yRowStride
+                val uvYOffset = (srcY / 2) * uvRowStride
 
-                    val yVal = (yBuffer.get(yOffset + x).toInt() and 0xFF)
+                for (x in 0 until targetW) {
+                    // Map target X to source X (Nearest Neighbor)
+                    val srcX = (x * scaleX).toInt().coerceIn(0, srcW - 1)
+                    val uvXOffset = (srcX / 2) * uvPixelStride
+
+                    val yVal = (yBuffer.get(yOffset + srcX).toInt() and 0xFF)
                     val uVal = (uBuffer.get(uvYOffset + uvXOffset).toInt() and 0xFF) - 128
                     val vVal = (vBuffer.get(uvYOffset + uvXOffset).toInt() and 0xFF) - 128
 
@@ -184,12 +197,12 @@ class MediaPipePoseAnalyzer @Inject constructor(
                     g = g.coerceIn(0, 255)
                     b = b.coerceIn(0, 255)
 
-                    pixels[y * w + x] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                    pixels[y * targetW + x] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
                 }
             }
 
-            val outBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            outBitmap.setPixels(pixels, 0, w, 0, 0, w, h)
+            val outBitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+            outBitmap.setPixels(pixels, 0, targetW, 0, 0, targetW, targetH)
             return outBitmap
         } catch (e: Exception) {
             Log.e("MediaPipePoseAnalyzer", "Optimized Bitmap conversion failed", e)
@@ -234,5 +247,13 @@ class MediaPipePoseAnalyzer @Inject constructor(
 
         _poseResults.value = poseResult
         syncEngine.addPoseResult(poseResult)
+    }
+
+    companion object {
+        /** 
+         * Target width for AI analysis. 
+         * Lower resolution significantly improves performance while maintaining accuracy.
+         */
+        private const val TARGET_WIDTH = 480
     }
 }
