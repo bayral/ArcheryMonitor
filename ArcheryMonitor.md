@@ -16,38 +16,57 @@ To enhance the archer's workflow, the application supports Bluetooth camera remo
 - Key events are explicitly consumed (returns `true`) to prevent system-level volume bars or interference.
 - Hardware key handling uses `onKeyDown` (for long-press adjustment) and `onKeyUp` (to distinguish from standard toggles).
 
+---
+
+## 🛡️ 0. CRITICAL INVARIANTS (DO NOT MODIFY)
+**To preserve the Video Replay/Sync stability, these rules are ABSOLUTE:**
+- **H264Decoder Loop:** The decoding loop MUST use a `while(dequeueOutputBuffer >= 0)` pattern to drain **all** available buffers. Replacing it with an `if` causes buffer saturation and breaks the replay.
+- **Non-Blocking Logic:** Never introduce `runBlocking` or manual `delay()` inside the Codec `stop()` or `release()` methods. This causes UI freezes and synchronization loss.
+- **Clock Reference:** Always use `SystemClock.elapsedRealtimeNanos() / 1000` as the unique time source for both Encoder and AI. Any other source (like `System.currentTimeMillis()`) will cause the skeleton to "drift" from the video.
+
 ## 🛠 1. Core Architecture Principles
 - **Circular Buffer:** `mmap` circular buffer for zero-copy 30s video storage.
 - **Unified Clock:** `SystemClock.elapsedRealtimeNanos` for AI-Video timestamp synchronization.
-- **Battery Efficiency:** AI analysis is gated: Active ONLY when recording/buffering + AI toggle ON.
+- **Efficiency & Robustness:** 
+    - **Frame Skipping:** AI analysis processes 1 frame out of 2.
+    - **Downscaling:** Input images are resized to **480px** width before AI inference.
+    - **Optimized Conversion:** Manual YUV to ARGB conversion (avoiding JPEG overhead).
+    - **GPU-to-CPU Fallback:** Automatic switch to CPU delegate if GPU acceleration fails during runtime.
 - **Modular Analysis:** Analysis modules are pluggable; the user can select an analysis mode (or "None") from a localized list.
 
 ---
 
 ## 🏗 2. Software Modules
-- **:core:** Common interfaces (`ISyncEngine`, `IPostureModule`), `IBufferManager`, `MatrixUtils`.
+- **:core:** Common interfaces (`ISyncEngine`, `IPostureModule`), `IBufferManager`, `MatrixUtils`, `PoseUtils`.
 - **:feature-camera:** `CameraXProvider` (capture), `H264Encoder`, `H264Decoder`.
-- **:feature-ai:** `MediaPipePoseAnalyzer` (data provider) + `PostureAnalysisEngine` (biomechanical logic engine).
-- **:app:** UI, `MainViewModel`, and Localization.
+- **:feature-ai:** `MediaPipePoseAnalyzer` (data provider) + `GeneralPostureModule` (advanced biomechanical logic).
+- **:app:** UI, `MainViewModel` (Badge system), and Localization.
 
 ---
 
 ## 🚀 3. Key Technical Stabilizations
 - **Undistorted Display:** `FILL_CENTER` layout via `requiredSize()` to avoid stretching.
-- **Synchronized Overlay:** `SyncEngineImpl` matches video PTS with AI poses using a `TreeMap` with a 1s jitter tolerance.
+- **Synchronized Overlay:** `SyncEngineImpl` matches video PTS with AI poses using a `TreeMap`.
 - **Ghost Removal:** `SyncEngine` history is purged on AI toggle or session restart.
 - **Device Support:** Manual YUV stride handling for correct AI detection on Pixel devices.
 
 ---
 
-## 🏹 4. Phase 5: Biomechanical Analysis (The MVP Coach)
+## 🏹 4. Phase 5: Biomechanical Analysis & Gamification
 The application evaluates posture based on theoretical references. Feedback is trinary (Green/Yellow/Red).
 
-### A. General Posture Module (Lateral/Front View)
+### A. General Posture Module (Advanced)
 * **Shoulder Alignment:** Angle between `L_SHOULDER` and `R_SHOULDER` relative to the horizon.
-    * **Green:** < 5° | **Yellow:** 5-12° | **Red:** > 12°.
-* **Body Lean (Stability):** Angle between the spine (Neck to Mid-Hips) and the gravity vertical.
-    * **Green:** < 3° | **Yellow:** 3-8° | **Red:** > 8°.
+* **Arm Alignment:** Angle between shoulder and elbow for both Bow and Draw arms.
+* **Vertical Axis:** Alignment between Mid-Shoulders and Mid-Hips.
+* **Orientation Aware:** Dynamically adjusts indices based on user settings and orientation (Facing vs Back to camera).
+
+### B. Gamification: Trophy Room (Badges)
+A progression system encourages consistent form:
+- **🎯 Perfect Shot (1s):** Maintain > 95% score for 1 continuous second.
+- **🏅 Solid Form (5s):** Maintain > 85% score for 5 continuous seconds.
+- **🗿 Statue (15s):** Maintain > 80% score for 15 continuous seconds.
+*Badges are notified via a top-screen banner and persisted in Settings.*
 
 ### B. Alignment & Draw Module (Lateral View)
 * **Planar Alignment:** Angle of the Draw Arm (Wrist-Elbow) relative to the Arrow line.

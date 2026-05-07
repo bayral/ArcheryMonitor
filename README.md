@@ -5,27 +5,28 @@ Archery Monitor is a high-performance Android application designed for archers t
 ## ✨ Key Features
 
 *   **⏱️ Adjustable Delayed Replay:** Configure a delay (1s to 30s) to review your shots immediately after shooting.
-*   **🤖 AI Pose Estimation:** Real-time human skeleton detection using Google MediaPipe, perfectly synchronized with the delayed video stream.
-*   **📷 Dual-Camera Support:** Toggle between front (selfie) and back cameras with automatic orientation and mirror handling.
-*   **🚀 High Performance:** Low-latency H.264 encoding and decoding using native buffers.
+*   **🤖 Advanced AI Analysis:** Real-time biomechanical analysis of shoulders, arms, and body axis, dynamically adapted to your laterality.
+*   **📊 Live Scoring & Feedback:** Immediate visual feedback with a percentage score and color-coded skeleton (Green/Yellow/Red).
+*   **🏆 Achievement System:** Unlock badges (Perfect Shot, Solid Form, Statue) based on your posture stability.
+*   **📷 Dual-Camera Support:** Toggle between front and back cameras with automatic orientation and mirror handling.
+*   **🚀 High Performance:** Optimized AI pipeline with **frame skipping**, **image downscaling**, and **GPU-to-CPU fallback**.
 *   **🌍 Multi-language Support:** Fully localized in English, French, and Italian.
-*   **📱 Optimized for Modern Devices:** Full-screen "Fill Center" display without image deformation, even on ultra-wide screens like the Google Pixel 7.
 
 ## 🛠 Technical Architecture
 
 The application is built using a modular Clean Architecture approach:
 
-- **`:core`**: Contains the central synchronization engine, memory-mapped buffer management, and coordinate transformation utilities.
+- **`:core`**: Contains the central synchronization engine, memory-mapped buffer management, and `PoseUtils` for orientation detection.
 - **`:feature-camera`**: Manages the CameraX pipeline, H.264 hardware encoding, and real-time playback decoding.
-- **`:feature-ai`**: Handles AI inference using MediaPipe Pose Landmarker with GPU acceleration.
+- **`:feature-ai`**: Handles AI inference using MediaPipe Pose Landmarker with optimized YUV conversion.
 - **`:app`**: Modern UI built with Jetpack Compose following the MVI (Model-View-Intent) pattern.
 
 ### 🔬 Engineering Challenges & Solutions
 
-*   **Pixel-Perfect Sync:** We use a unified high-precision system clock (`SystemClock.elapsedRealtimeNanos`) across the AI and Video pipelines to ensure the skeleton "sticks" to the archer regardless of the playback delay.
-*   **Zero-Lag Circular Buffer:** Video packets are stored in a memory-mapped file (`mmap`) to support up to 30 seconds of high-definition video without risking Out-of-Memory (OOM) errors.
-*   **Device Compatibility:** Explicit handling of YUV row strides ensures accurate AI detection on Google Pixel and other devices that use non-standard memory layouts for camera frames.
-*   **Lifecycle Stability:** Robust management of CameraX and MediaCodec resources ensures the app handles screen locks and app switching without pipeline crashes or "BufferQueue abandoned" errors.
+*   **Pixel-Perfect Sync:** We use a unified high-precision system clock across the AI and Video pipelines to ensure the skeleton "sticks" to the archer.
+*   **CPU Optimization:** To maintain high FPS on all devices, we process 1 AI frame out of 2 and downscale input images to 480px.
+*   **Robustness:** Automatic fallback to CPU delegate ensures the analysis never stops, even if the GPU driver encountered an error.
+*   **Zero-Lag Circular Buffer:** Video packets are stored in a memory-mapped file (`mmap`) to support up to 30 seconds of HD video without OOM.
 
 ## 📱 Remote Control (Bluetooth)
 
