@@ -43,7 +43,10 @@ class MainViewModel @Inject constructor(
                     var analysisResult: AnalysisResult? = null
                     
                     if (syncedPose != null) {
-                        analysisResult = _uiState.value.selectedModule?.analyze(syncedPose)
+                        analysisResult = _uiState.value.selectedModule?.analyze(
+                            syncedPose,
+                            ArcherySettings()
+                        )
                     }
 
                     _uiState.value = _uiState.value.copy(

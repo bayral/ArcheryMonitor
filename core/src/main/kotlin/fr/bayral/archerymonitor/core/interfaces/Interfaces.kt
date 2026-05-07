@@ -6,6 +6,31 @@ import java.nio.ByteBuffer
 import androidx.lifecycle.LifecycleOwner
 
 /**
+ * Laterality for the archer.
+ */
+enum class Laterality {
+    RIGHT_HANDED,
+    LEFT_HANDED
+}
+
+/**
+ * Supported bow types.
+ */
+enum class BowType {
+    RECURVE,
+    BAREBOW,
+    COMPOUND
+}
+
+/**
+ * Archer settings configuration.
+ */
+data class ArcherySettings(
+    val laterality: Laterality = Laterality.RIGHT_HANDED,
+    val bowType: BowType = BowType.RECURVE
+)
+
+/**
  * Interface defining the camera capture and stream management operations.
  */
 interface ICameraProvider {

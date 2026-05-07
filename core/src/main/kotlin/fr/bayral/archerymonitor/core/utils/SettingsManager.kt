@@ -6,42 +6,44 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
+import fr.bayral.archerymonitor.core.interfaces.BowType
+import fr.bayral.archerymonitor.core.interfaces.Laterality
 
 /**
  * Persists application settings using [SharedPreferences].
- *
- * This manager stores user preferences such as the replay delay and camera choice
- * to ensure they persist between app sessions.
- *
- * @param context The application context to retrieve SharedPreferences.
  */
 @Singleton
 class SettingsManager @Inject constructor(
     @ApplicationContext context: Context
 ) {
-    /** Internal reference to SharedPreferences. */
     private val prefs: SharedPreferences = context.getSharedPreferences("archery_settings", Context.MODE_PRIVATE)
 
     companion object {
-        /** Key for the replay delay setting. */
         private const val KEY_RECORDING_DELAY = "recording_delay"
-        /** Key for the front/back camera choice. */
         private const val KEY_USE_FRONT_CAMERA = "use_front_camera"
-        /** Default delay in seconds. */
+        private const val KEY_LATERALITY = "laterality"
+        private const val KEY_BOW_TYPE = "bow_type"
+        private const val KEY_SELECTED_MODULE = "selected_module"
         private const val DEFAULT_DELAY = 6f
     }
 
-    /**
-     * User-configured replay delay in seconds.
-     */
     var recordingDelay: Float
         get() = prefs.getFloat(KEY_RECORDING_DELAY, DEFAULT_DELAY)
         set(value) = prefs.edit { putFloat(KEY_RECORDING_DELAY, value)}
 
-    /**
-     * True if the user prefers the front-facing (selfie) camera.
-     */
     var useFrontCamera: Boolean
         get() = prefs.getBoolean(KEY_USE_FRONT_CAMERA, false)
         set(value) = prefs.edit { putBoolean(KEY_USE_FRONT_CAMERA, value) }
+
+    var laterality: Laterality
+        get() = Laterality.valueOf(prefs.getString(KEY_LATERALITY, Laterality.RIGHT_HANDED.name) ?: Laterality.RIGHT_HANDED.name)
+        set(value) = prefs.edit { putString(KEY_LATERALITY, value.name) }
+
+    var bowType: BowType
+        get() = BowType.valueOf(prefs.getString(KEY_BOW_TYPE, BowType.RECURVE.name) ?: BowType.RECURVE.name)
+        set(value) = prefs.edit { putString(KEY_BOW_TYPE, value.name) }
+
+    var selectedModuleId: String?
+        get() = prefs.getString(KEY_SELECTED_MODULE, null)
+        set(value) = prefs.edit { putString(KEY_SELECTED_MODULE, value) }
 }

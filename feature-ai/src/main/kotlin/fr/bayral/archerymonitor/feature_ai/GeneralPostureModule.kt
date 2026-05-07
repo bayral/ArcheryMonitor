@@ -1,6 +1,7 @@
 package fr.bayral.archerymonitor.feature_ai
 
 import fr.bayral.archerymonitor.core.interfaces.AnalysisResult
+import fr.bayral.archerymonitor.core.interfaces.ArcherySettings
 import fr.bayral.archerymonitor.core.interfaces.IPostureModule
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
 import kotlin.math.atan2
@@ -20,7 +21,7 @@ class GeneralPostureModule : IPostureModule {
     override val labelResId: Int = fr.bayral.archerymonitor.resources.R.string.label_posture_general
  
 
-    override fun analyze(pose: PoseResult): AnalysisResult {
+    override fun analyze(pose: PoseResult, settings: ArcherySettings): AnalysisResult {
         val jointColors = mutableMapOf<Int, Long>()
 
         if (pose.landmarks.size <= 12) return AnalysisResult(jointColors, 0f)
@@ -47,4 +48,5 @@ class GeneralPostureModule : IPostureModule {
 
         return AnalysisResult(jointColors, score)
     }
+
 }
