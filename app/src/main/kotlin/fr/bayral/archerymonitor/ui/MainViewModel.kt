@@ -1,20 +1,20 @@
 package fr.bayral.archerymonitor.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.bayral.archerymonitor.core.interfaces.*
+import fr.bayral.archerymonitor.core.utils.PostureModuleFactory
 import fr.bayral.archerymonitor.core.utils.SettingsManager
 import fr.bayral.archerymonitor.feature_camera.H264Decoder
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import androidx.lifecycle.viewModelScope
+/**
+ * Data class for Badge definitions.
+ */
+data class Badge(val id: String, val labelResId: Int, val minScore: Float, val durationSeconds: Long)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -23,30 +23,61 @@ class MainViewModel @Inject constructor(
     private val syncEngine: ISyncEngine,
     private val settingsManager: SettingsManager,
     private val decoder: H264Decoder,
-    private val availableModules: @JvmSuppressWildcards List<IPostureModule>
+    private val moduleFactory: PostureModuleFactory
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         MainUiState(
             delaySeconds = settingsManager.recordingDelay,
             useFrontCamera = settingsManager.useFrontCamera,
-        ),
+            archerySettings = ArcherySettings(
+                laterality = settingsManager.laterality,
+                bowType = settingsManager.bowType
+            )
+        ).let { state ->
+            val compatible = moduleFactory.getCompatibleModules(state.archerySettings)
+            state.copy(
+                selectedModule = compatible.find { it::class.java.simpleName == settingsManager.selectedModuleId }
+                    ?: compatible.firstOrNull()
+            )
+        }
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
+    private val badgeDefinitions = listOf(
+        Badge("PERFECT_1S", fr.bayral.archerymonitor.resources.R.string.badge_perfect_1s, 0.95f, 1),
+        Badge("SOLID_5S", fr.bayral.archerymonitor.resources.R.string.badge_solid_5s, 0.85f, 5),
+        Badge("STATUE_15S", fr.bayral.archerymonitor.resources.R.string.badge_statue_15s, 0.80f, 15)
+    )
+
+    private val badgeIcons = mapOf(
+        "PERFECT_1S" to "🎯",
+        "SOLID_5S" to "🏅",
+        "STATUE_15S" to "🗿"
+    )
+
+    private val _lastUnlockedBadge = MutableStateFlow<Pair<String, String>?>(null)
+    val lastUnlockedBadge: StateFlow<Pair<String, String>?> = _lastUnlockedBadge.asStateFlow()
+
+    fun getBadgeIcon(id: String) = badgeIcons[id] ?: "🏆"
+    fun getBadgeDefinitions() = badgeDefinitions
+    val unlockedBadges: Set<String> get() = settingsManager.unlockedBadges
+
+    private val badgeProgress = mutableMapOf<String, Long>()
+
     init {
-        // Collect decoder timestamp and sync pose
         decoder.currentPlaybackTimestamp
             .onEach { pts ->
-                if (_uiState.value.isAiEnabled && _uiState.value.appState != AppState.IDLE) {
+                if (_uiState.value.isAiEnabled && _uiState.value.appState == AppState.RECORDING) {
                     val syncedPose = syncEngine.getSyncPose(pts)
                     var analysisResult: AnalysisResult? = null
                     
                     if (syncedPose != null) {
                         analysisResult = _uiState.value.selectedModule?.analyze(
                             syncedPose,
-                            ArcherySettings()
+                            _uiState.value.archerySettings
                         )
+                        updateBadgeProgress(analysisResult?.score ?: 0f)
                     }
 
                     _uiState.value = _uiState.value.copy(
@@ -60,13 +91,40 @@ class MainViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun updateBadgeProgress(currentScore: Float) {
+        val now = System.currentTimeMillis()
+        badgeDefinitions.forEach { badge ->
+            if (settingsManager.unlockedBadges.contains(badge.id)) return@forEach
+
+            if (currentScore >= badge.minScore) {
+                val startTime = badgeProgress[badge.id] ?: now
+                badgeProgress[badge.id] = startTime
+                
+                val durationMs = now - startTime
+                if (durationMs >= badge.durationSeconds * 1000) {
+                    settingsManager.unlockBadge(badge.id)
+                    _lastUnlockedBadge.value = badge.id to getBadgeIcon(badge.id)
+                    viewModelScope.launch {
+                        delay(3000)
+                        _lastUnlockedBadge.value = null
+                    }
+                }
+            } else {
+                badgeProgress.remove(badge.id)
+            }
+        }
+    }
+
     private var currentSurface: android.view.Surface? = null
 
     fun selectModule(module: IPostureModule?) {
         _uiState.value = _uiState.value.copy(selectedModule = module, analysisResult = null)
+        settingsManager.selectedModuleId = module?.let { it::class.java.simpleName }
     }
 
-    fun getAvailableModules(): List<IPostureModule> = availableModules
+    fun getAvailableModules(): List<IPostureModule> = moduleFactory.getCompatibleModules(_uiState.value.archerySettings)
+
+    // ... (rest of methods)
 
     fun onStartCapture(lifecycleOwner: androidx.lifecycle.LifecycleOwner, surfaceProvider: androidx.camera.core.Preview.SurfaceProvider) {
         if (_uiState.value.appState == AppState.RECORDING) {
@@ -195,5 +253,6 @@ data class MainUiState(
     val useFrontCamera: Boolean = false,
     val videoWidth: Int = 1280,
     val videoHeight: Int = 720,
-    val videoRotation: Int = 0
+    val videoRotation: Int = 0,
+    val archerySettings: ArcherySettings = ArcherySettings()
 )

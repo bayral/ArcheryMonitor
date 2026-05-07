@@ -10,4 +10,7 @@
     <string name="btn_camera_front">Front</string>
     <string name="label_none">None</string>
     <string name="label_posture_general">General Posture</string>
+    <string name="badge_perfect_1s">Perfect 1s</string>
+    <string name="badge_solid_5s">Solid 5s</string>
+    <string name="badge_statue_15s">Statue 15s</string>
 </resources>

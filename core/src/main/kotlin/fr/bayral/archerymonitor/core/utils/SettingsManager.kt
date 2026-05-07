@@ -46,4 +46,15 @@ class SettingsManager @Inject constructor(
     var selectedModuleId: String?
         get() = prefs.getString(KEY_SELECTED_MODULE, null)
         set(value) = prefs.edit { putString(KEY_SELECTED_MODULE, value) }
+
+    var unlockedBadges: Set<String>
+        get() = prefs.getStringSet("unlocked_badges", emptySet()) ?: emptySet()
+        set(value) = prefs.edit { putStringSet("unlocked_badges", value) }
+
+    fun unlockBadge(badgeId: String) {
+        val current = unlockedBadges.toMutableSet()
+        if (current.add(badgeId)) {
+            unlockedBadges = current
+        }
+    }
 }

@@ -1,9 +1,11 @@
 package fr.bayral.archerymonitor.feature_ai.di
 
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import fr.bayral.archerymonitor.core.interfaces.IPoseAnalyzer
 import fr.bayral.archerymonitor.core.interfaces.IPostureModule
 import fr.bayral.archerymonitor.feature_ai.GeneralPostureModule
@@ -15,13 +17,15 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object AIModule {
+abstract class AIModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun providePoseAnalyzer(analyzer: MediaPipePoseAnalyzer): IPoseAnalyzer = analyzer
+    abstract fun bindPoseAnalyzer(analyzer: MediaPipePoseAnalyzer): IPoseAnalyzer
 
-    @Provides
-    @Singleton
-    fun providePostureModules(): List<IPostureModule> = listOf(GeneralPostureModule())
+    companion object {
+        @Provides
+        @IntoSet
+        fun provideGeneralPostureModule(): IPostureModule = GeneralPostureModule()
+    }
 }
