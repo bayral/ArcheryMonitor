@@ -56,7 +56,7 @@ fun MainScreen(viewModel: MainViewModel) {
             onSurfaceCreated = { viewModel.startDelayedPlayback(it) }
         )
 
-        // 1. Score Display (Top Right)
+        // 1. Score and Release Display (Top Right)
         uiState.analysisResult?.let { result ->
             val scorePercent = (result.score * 100).toInt()
             val scoreColor = when {
@@ -65,19 +65,38 @@ fun MainScreen(viewModel: MainViewModel) {
                 else -> Color.Red
             }
 
-            Surface(
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 90.dp, end = 16.dp),
-                color = Color.Black.copy(alpha = 0.6f),
-                shape = MaterialTheme.shapes.medium
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "$scorePercent%",
-                    color = scoreColor,
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
+                // Score Box
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        text = "$scorePercent%",
+                        color = scoreColor,
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+
+                // Release Counter Box
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        text = "Shots: ${result.releaseCount}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
 

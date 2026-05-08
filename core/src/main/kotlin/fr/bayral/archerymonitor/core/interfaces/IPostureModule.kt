@@ -17,7 +17,9 @@ data class ModuleCapabilities(
 data class AnalysisResult(
     val jointColors: Map<Int, Long>,
     val segments: List<AnalysisSegment> = emptyList(),
-    val score: Float
+    val score: Float,
+    val releaseCount: Int = 0,
+    val isReleaseEvent: Boolean = false
 )
 
 /**
@@ -30,6 +32,17 @@ data class AnalysisSegment(
     val endCustom: Landmark? = null,
     val color: Long
 )
+
+/**
+ * Shared colors for skeleton analysis visualization.
+ */
+object AnalysisColors {
+    const val GREEN = 0xFF00FF00L
+    const val RED = 0xFFFF0000L
+    const val YELLOW = 0xFFFFFF00L
+    const val BLUE = 0xFF0000FFL
+    const val ORANGE = 0xFFFFA500L
+}
 
 /**
  * Interface for a modular archery posture analysis routine.

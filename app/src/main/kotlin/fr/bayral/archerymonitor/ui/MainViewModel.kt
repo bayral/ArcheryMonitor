@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.bayral.archerymonitor.core.interfaces.*
+import fr.bayral.archerymonitor.core.utils.OrientationMonitor
 import fr.bayral.archerymonitor.core.utils.PostureModuleFactory
 import fr.bayral.archerymonitor.core.utils.SettingsManager
 import fr.bayral.archerymonitor.feature_camera.H264Decoder
@@ -23,7 +24,8 @@ class MainViewModel @Inject constructor(
     private val syncEngine: ISyncEngine,
     private val settingsManager: SettingsManager,
     private val decoder: H264Decoder,
-    private val moduleFactory: PostureModuleFactory
+    private val moduleFactory: PostureModuleFactory,
+    private val orientationMonitor: OrientationMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -66,6 +68,16 @@ class MainViewModel @Inject constructor(
     private val badgeProgress = mutableMapOf<String, Long>()
 
     init {
+        orientationMonitor.start()
+
+        orientationMonitor.tilt
+            .onEach { tilt ->
+                _uiState.value = _uiState.value.copy(
+                    archerySettings = _uiState.value.archerySettings.copy(deviceTilt = tilt)
+                )
+            }
+            .launchIn(viewModelScope)
+
         decoder.currentPlaybackTimestamp
             .onEach { pts ->
                 if (_uiState.value.isAiEnabled && _uiState.value.appState == AppState.RECORDING) {

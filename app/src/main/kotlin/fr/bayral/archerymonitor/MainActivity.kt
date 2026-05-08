@@ -1,7 +1,12 @@
 package fr.bayral.archerymonitor
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
@@ -27,6 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import dagger.hilt.android.AndroidEntryPoint
 import fr.bayral.archerymonitor.core.interfaces.AppState
 import fr.bayral.archerymonitor.ui.MainScreen
@@ -39,17 +47,26 @@ import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
  * The primary entry point for the Archery Monitor application.
  *
  * This activity handles camera permission requests, sets up the Compose UI,
- * and intercepts hardware key events for remote control.
+ * intercepts hardware key events for remote control, and manages
+ * power/display features (screen on, auto-brightness).
  */
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), SensorEventListener {
 
     /** The main ViewModel managing app state and logic. */
     private val viewModel: MainViewModel by viewModels()
 
+    private lateinit var sensorManager: SensorManager
+    private var lightSensor: Sensor? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+
         enableEdgeToEdge()
+        hideSystemBars()
         setContent {
             ArcheryMonitorTheme {
                 // Keep screen on logic
@@ -96,6 +113,46 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lightSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
+            val lux = event.values[0]
+            val layoutParams = window.attributes
+            
+            // If ambient light is very high (outside, sun), force max brightness
+            if (lux > 10000) { // Direct sunlight
+                layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+                window.attributes = layoutParams
+            } else if (lux > 2000) { // Bright outdoor
+                layoutParams.screenBrightness = 0.9f
+                window.attributes = layoutParams
+            } else {
+                // Return to system default
+                layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                window.attributes = layoutParams
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    private fun hideSystemBars() {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
     }
 
     private var isVolumeUpLongPressed = false

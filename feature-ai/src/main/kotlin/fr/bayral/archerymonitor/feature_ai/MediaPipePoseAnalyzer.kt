@@ -292,6 +292,6 @@ class MediaPipePoseAnalyzer @Inject constructor(
          * Target width for AI analysis. 
          * Lower resolution significantly improves performance while maintaining accuracy.
          */
-        private const val TARGET_WIDTH = 480
+        private const val TARGET_WIDTH = 640
     }
 }

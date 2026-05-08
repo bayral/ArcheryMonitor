@@ -22,5 +22,6 @@ enum class BowType {
  */
 data class ArcherySettings(
     val laterality: Laterality = Laterality.RIGHT_HANDED,
-    val bowType: BowType = BowType.RECURVE
+    val bowType: BowType = BowType.RECURVE,
+    val deviceTilt: Float = 0f // Angle in degrees (roll)
 )
