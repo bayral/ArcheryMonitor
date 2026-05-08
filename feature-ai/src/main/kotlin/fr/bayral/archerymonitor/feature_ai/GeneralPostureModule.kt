@@ -112,7 +112,14 @@ class GeneralPostureModule : IPostureModule {
                 
                 releaseCount++
                 isReleaseEvent = true
-                freezeScore = smoothedScore
+                
+                // Calculate Dynamism Bonus (up to 10%)
+                // Reward releases that are much faster than the minimum threshold
+                val dynamismRange = DYNAMIC_RELEASE_VELOCITY_TARGET - RELEASE_VELOCITY_THRESHOLD
+                val dynamismBonus = ((velocity - RELEASE_VELOCITY_THRESHOLD) / dynamismRange)
+                    .coerceIn(0.0, 1.0) * MAX_RELEASE_BONUS
+                
+                freezeScore = (smoothedScore + dynamismBonus.toFloat()).coerceAtMost(1.0f)
                 freezeUntil = currentTime + FREEZE_DURATION_MS
             }
         }
@@ -230,9 +237,11 @@ class GeneralPostureModule : IPostureModule {
 
         // Detection & Stability Constants
         private const val FREEZE_DURATION_MS = 3000L
-        private const val RELEASE_VELOCITY_THRESHOLD = 0.07
-        private const val MIN_DRAW_DISTANCE = 0.12
+        private const val RELEASE_VELOCITY_THRESHOLD = 0.05 // Lowered to support static releases
+        private const val MIN_DRAW_DISTANCE = 0.10 // Slightly more inclusive
         private const val STABILITY_THRESHOLD_FOR_RELEASE = 0.7f
+        private const val DYNAMIC_RELEASE_VELOCITY_TARGET = 0.20 // Velocity for max bonus
+        private const val MAX_RELEASE_BONUS = 0.10f // Up to 10% bonus for dynamic release
         
         private val STABILITY_KEY_POINTS = listOf(11, 12, 13, 14, 23, 24)
         private const val INITIAL_STABILITY = 0.5f

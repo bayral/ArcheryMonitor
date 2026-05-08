@@ -5,27 +5,27 @@ Archery Monitor is a high-performance Android application designed for archers t
 ## ✨ Key Features
 
 *   **⏱️ Adjustable Delayed Replay:** Configure a delay (1s to 30s) to review your shots immediately after shooting.
-*   **🤖 Advanced AI Analysis:** Real-time biomechanical analysis of shoulders, arms, and body axis, dynamically adapted to your laterality.
-*   **📊 Live Scoring & Feedback:** Immediate visual feedback with a percentage score and color-coded skeleton (Green/Yellow/Red).
-*   **🏆 Achievement System:** Unlock badges (Perfect Shot, Solid Form, Statue) based on your posture stability.
-*   **📷 Dual-Camera Support:** Toggle between front and back cameras with automatic orientation and mirror handling.
-*   **🚀 High Performance:** Optimized AI pipeline with **frame skipping**, **image downscaling**, and **GPU-to-CPU fallback**.
-*   **🌍 Multi-language Support:** Fully localized in English, French, and Italian.
+*   **🤖 Advanced AI Analysis:** Real-time biomechanical analysis of shoulders, arms, and body axis, with automatic **device tilt compensation**.
+*   **📊 Gaussian Scoring & Feedback:** Smooth, non-linear scoring system that rewards perfection and filters micro-jitters with an **Exponential Moving Average (EMA)**.
+*   **🏹 Release Detection:** Automatically detects shots based on recoil velocity, with a **dynamism bonus** for clean follow-throughs and a 3-second score freeze.
+*   **🏆 Achievement System:** Unlock badges (Perfect Shot, Solid Form, Statue) based on your shot quality and stability.
+*   **📷 Immersive Experience:** Full-screen mode and **auto-brightness** adjustment for optimal outdoor visibility.
+*   **🚀 High Performance:** Optimized AI pipeline with **frame skipping** and **640px resolution** analysis for the best balance of speed and precision.
 
 ## 🛠 Technical Architecture
 
 The application is built using a modular Clean Architecture approach:
 
-- **`:core`**: Contains the central synchronization engine, memory-mapped buffer management, and `PoseUtils` for orientation detection.
+- **`:core`**: Central synchronization engine, memory-mapped buffer management, and `OrientationMonitor` for accelerometer-based tilt compensation.
 - **`:feature-camera`**: Manages the CameraX pipeline, H.264 hardware encoding, and real-time playback decoding.
-- **`:feature-ai`**: Handles AI inference using MediaPipe Pose Landmarker with optimized YUV conversion.
-- **`:app`**: Modern UI built with Jetpack Compose following the MVI (Model-View-Intent) pattern.
+- **`:feature-ai`**: Handles AI inference using MediaPipe Pose Landmarker with optimized YUV conversion and Gaussian scoring modules.
+- **`:app`**: Modern UI built with Jetpack Compose featuring an immersive mode and Shot Counter.
 
 ### 🔬 Engineering Challenges & Solutions
 
 *   **Pixel-Perfect Sync:** We use a unified high-precision system clock across the AI and Video pipelines to ensure the skeleton "sticks" to the archer.
-*   **CPU Optimization:** To maintain high FPS on all devices, we process 1 AI frame out of 2 and downscale input images to 480px.
-*   **Robustness:** Automatic fallback to CPU delegate ensures the analysis never stops, even if the GPU driver encountered an error.
+*   **Precision AI:** We process 1 AI frame out of 2 and use a **640px** resolution for landmark detection to maintain accuracy at distance.
+*   **Hardware Integration:** Auto-brightness uses the device light sensor to force max visibility in direct sunlight.
 *   **Zero-Lag Circular Buffer:** Video packets are stored in a memory-mapped file (`mmap`) to support up to 30 seconds of HD video without OOM.
 
 ## 📱 Remote Control (Bluetooth)

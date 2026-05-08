@@ -29,53 +29,41 @@ To enhance the archer's workflow, the application supports Bluetooth camera remo
 - **Unified Clock:** `SystemClock.elapsedRealtimeNanos` for AI-Video timestamp synchronization.
 - **Efficiency & Robustness:** 
     - **Frame Skipping:** AI analysis processes 1 frame out of 2.
-    - **Downscaling:** Input images are resized to **480px** width before AI inference.
-    - **Optimized Conversion:** Manual YUV to ARGB conversion (avoiding JPEG overhead).
-    - **GPU-to-CPU Fallback:** Automatic switch to CPU delegate if GPU acceleration fails during runtime.
-- **Modular Analysis:** Analysis modules are pluggable; the user can select an analysis mode (or "None") from a localized list.
+    - **Resolution:** Input images are resized to **640px** width for optimal landmark detection.
+    - **Optimized Conversion:** Manual YUV to ARGB conversion.
+    - **Tilt Compensation:** Automatic rotation matrix applied to landmarks based on accelerometer (Roll).
+    - **Auto-Brightness:** Forced max brightness via light sensor for outdoor visibility.
+- **Modular Analysis:** Analysis modules use centralized `AnalysisColors` (GREEN/RED/YELLOW) and a shared `AnalysisResult` data class.
 
 ---
 
 ## 🏗 2. Software Modules
-- **:core:** Common interfaces (`ISyncEngine`, `IPostureModule`), `IBufferManager`, `MatrixUtils`, `PoseUtils`.
-- **:feature-camera:** `CameraXProvider` (capture), `H264Encoder`, `H264Decoder`.
-- **:feature-ai:** `MediaPipePoseAnalyzer` (data provider) + `GeneralPostureModule` (advanced biomechanical logic).
-- **:app:** UI, `MainViewModel` (Badge system), and Localization.
+- **:core:** Common interfaces, `OrientationMonitor`, `MatrixUtils`, `PoseUtils`.
+- **:feature-camera:** Hardware-accelerated H.264 Encoder/Decoder.
+- **:feature-ai:** MediaPipe provider + `GeneralPostureModule` (Gaussian scoring).
+- **:app:** UI (Immersive Mode), Shot Counter, and Badge system.
 
 ---
 
-## 🚀 3. Key Technical Stabilizations
-- **Undistorted Display:** `FILL_CENTER` layout via `requiredSize()` to avoid stretching.
-- **Synchronized Overlay:** `SyncEngineImpl` matches video PTS with AI poses using a `TreeMap`.
-- **Ghost Removal:** `SyncEngine` history is purged on AI toggle or session restart.
-- **Device Support:** Manual YUV stride handling for correct AI detection on Pixel devices.
-
----
-
-## 🏹 4. Phase 5: Biomechanical Analysis & Gamification
-The application evaluates posture based on theoretical references. Feedback is trinary (Green/Yellow/Red).
+## 🏹 4. Biomechanical Analysis & Scoring
+The evaluation system uses a **Gaussian Curve** model for smooth, high-precision scoring.
 
 ### A. General Posture Module (Advanced)
-* **Shoulder Alignment:** Angle between `L_SHOULDER` and `R_SHOULDER` relative to the horizon.
-* **Arm Alignment:** Angle between shoulder and elbow for both Bow and Draw arms.
-* **Vertical Axis:** Alignment between Mid-Shoulders and Mid-Hips.
-* **Orientation Aware:** Dynamically adjusts indices based on user settings and orientation (Facing vs Back to camera).
+* **Weights:** Shoulders (30%), Arms (50%), Vertical Axis (20%).
+* **Stability Filter:** Progressive penalty during movement; score climbs to 100% only when the archer is static (Aiming Phase).
+* **Smoothing:** Final score uses an **Exponential Moving Average (EMA)** to filter frame-to-frame jitters.
+* **Release Detection (Recoil):** 
+    - Triggered by `drawArmElbow` velocity (threshold: 0.05).
+    - **Safety:** Archer must be stable and bow must be drawn (`minDrawDistance`) to fire a shot event.
+    - **Dynamism Bonus:** Up to **+10% score** based on recoil speed (follow-through).
+    - **Freeze:** Display and Badge validation are frozen for **3 seconds** after release.
 
 ### B. Gamification: Trophy Room (Badges)
 A progression system encourages consistent form:
 - **🎯 Perfect Shot (1s):** Maintain > 95% score for 1 continuous second.
 - **🏅 Solid Form (5s):** Maintain > 85% score for 5 continuous seconds.
 - **🗿 Statue (15s):** Maintain > 80% score for 15 continuous seconds.
-*Badges are notified via a top-screen banner and persisted in Settings.*
-
-### B. Alignment & Draw Module (Lateral View)
-* **Planar Alignment:** Angle of the Draw Arm (Wrist-Elbow) relative to the Arrow line.
-    * **Green:** 0° to 10° (upwards) | **Yellow:** > 15° or Negative | **Red:** Excessive misalignment.
-* **Hold Stability:** Variance of `WRIST` position during the last 2 seconds of the aiming phase.
-
-### C. Release Module (Dynamic)
-* **Follow-Through Trajectory:** Comparison of `ELBOW` position at $T_{release}$ and $T_{release} + 500ms$.
-    * **Green:** Positive backward movement | **Red:** "Dead" release or forward collapse.
+*Badges use the frozen release score for validation.*
 
 ---
 
