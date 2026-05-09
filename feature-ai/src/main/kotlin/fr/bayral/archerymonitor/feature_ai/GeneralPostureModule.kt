@@ -248,7 +248,7 @@ class GeneralPostureModule : IPostureModule {
         // Detection & Stability Constants
         private const val FREEZE_DURATION_MS = 3000L
         private const val RELEASE_VELOCITY_THRESHOLD = 0.05 // Lowered to support static releases
-        private const val MIN_DRAW_DISTANCE = 0.10 // Slightly more inclusive
+        private const val MIN_DRAW_DISTANCE = 0.15 // Increased: elbow must be further back
         private const val STABILITY_THRESHOLD_FOR_RELEASE = 0.7f
         private const val DYNAMIC_RELEASE_VELOCITY_TARGET = 0.20 // Velocity for max bonus
         private const val MAX_RELEASE_BONUS = 0.10f // Up to 10% bonus for dynamic release
