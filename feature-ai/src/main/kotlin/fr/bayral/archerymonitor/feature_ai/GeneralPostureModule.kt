@@ -122,8 +122,9 @@ class GeneralPostureModule : IPostureModule {
                 val dynamismBonus = ((velocity - RELEASE_VELOCITY_THRESHOLD) / dynamismRange)
                     .coerceIn(0.0, 1.0) * MAX_RELEASE_BONUS
                 
-                // Capture score from ~200ms ago to get aiming quality before collapse
-                val preReleaseScore = if (scoreHistory.isNotEmpty()) scoreHistory.first() else smoothedScore
+                // Capture the highest score from the last ~200ms
+                // This ensures we get the peak aiming quality just before the release collapse
+                val preReleaseScore = if (scoreHistory.isNotEmpty()) scoreHistory.maxOrNull() ?: smoothedScore else smoothedScore
                 freezeScore = (preReleaseScore + dynamismBonus.toFloat()).coerceAtMost(1.0f)
                 freezeUntil = currentTime + FREEZE_DURATION_MS
             }
