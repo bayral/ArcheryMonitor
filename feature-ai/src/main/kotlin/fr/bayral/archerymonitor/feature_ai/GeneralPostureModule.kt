@@ -32,7 +32,13 @@ class GeneralPostureModule : IPostureModule {
 
     // Internal state for release detection and freezing
     private var releaseCount = 0
-    private var freezeScore = 0f
+    private var freezeScoreBase = 0f // Score before bonuses
+    private var dynamismBonus = 0f
+    private var followThroughBonus = 0f
+    private var isFollowThroughActive = false
+    private var followThroughEndTime = 0L
+    private var initialBowElbowY = 0f
+
     private var freezeUntil = 0L
 
     private fun gaussianScore(error: Double, sigma: Double): Double {
@@ -96,37 +102,51 @@ class GeneralPostureModule : IPostureModule {
         val rs = compensatedPose.landmarks[drawArmShoulder]
         val lh = compensatedPose.landmarks[L_HIP]
         val rh = compensatedPose.landmarks[R_HIP]
+        val le = compensatedPose.landmarks[bowArmElbow]
         val re = compensatedPose.landmarks[drawArmElbow]
 
-        // --- RELEASE DETECTION ---
+        // --- RELEASE DETECTION & FOLLOW-THROUGH MONITORING ---
         var isReleaseEvent = false
+        
+        // 1. Check for new release
         previousPose?.let { prev ->
             val p1 = prev.landmarks[drawArmElbow]
             val p2 = compensatedPose.landmarks[drawArmElbow]
             val velocity = Math.sqrt(Math.pow((p1.x - p2.x).toDouble(), 2.0) + Math.pow((p1.y - p2.y).toDouble(), 2.0))
             
-            // Release criteria: High velocity during stable aiming phase with bow drawn
             val isDrawn = abs(re.x - rs.x) > MIN_DRAW_DISTANCE
             
-            if (velocity > RELEASE_VELOCITY_THRESHOLD && 
-                currentTime > freezeUntil && 
-                stabilityFactor > STABILITY_THRESHOLD_FOR_RELEASE && 
-                isDrawn) {
-                
+            if (velocity > RELEASE_VELOCITY_THRESHOLD && currentTime > freezeUntil && stabilityFactor > STABILITY_THRESHOLD_FOR_RELEASE && isDrawn) {
                 releaseCount++
                 isReleaseEvent = true
                 
-                // Calculate Dynamism Bonus (up to 10%)
-                // Reward releases that are much faster than the minimum threshold
+                // Dynamism Bonus
                 val dynamismRange = DYNAMIC_RELEASE_VELOCITY_TARGET - RELEASE_VELOCITY_THRESHOLD
-                val dynamismBonus = ((velocity - RELEASE_VELOCITY_THRESHOLD) / dynamismRange)
-                    .coerceIn(0.0, 1.0) * MAX_RELEASE_BONUS
+                dynamismBonus = (((velocity - RELEASE_VELOCITY_THRESHOLD) / dynamismRange).coerceIn(0.0, 1.0) * MAX_RELEASE_BONUS).toFloat()
                 
-                // Capture the highest score from the last ~200ms
-                // This ensures we get the peak aiming quality just before the release collapse
-                val preReleaseScore = if (scoreHistory.isNotEmpty()) scoreHistory.maxOrNull() ?: smoothedScore else smoothedScore
-                freezeScore = (preReleaseScore + dynamismBonus.toFloat()).coerceAtMost(1.0f)
+                // Posture Base Score (Peak of last 200ms)
+                freezeScoreBase = if (scoreHistory.isNotEmpty()) scoreHistory.maxOrNull() ?: smoothedScore else smoothedScore
+                
+                // Initialize Follow-Through
+                isFollowThroughActive = true
+                followThroughBonus = MAX_FOLLOW_THROUGH_BONUS
+                followThroughEndTime = currentTime + FOLLOW_THROUGH_DURATION_MS
+                initialBowElbowY = le.y
+                
                 freezeUntil = currentTime + FREEZE_DURATION_MS
+            }
+        }
+
+        // 2. Monitor existing follow-through
+        if (isFollowThroughActive) {
+            if (currentTime < followThroughEndTime) {
+                // If bow arm drops significantly, lose the bonus
+                if (le.y > initialBowElbowY + FOLLOW_THROUGH_DROP_THRESHOLD) {
+                    followThroughBonus = 0f
+                    isFollowThroughActive = false // Locked for this shot
+                }
+            } else {
+                isFollowThroughActive = false // Duration completed, bonus locked
             }
         }
 
@@ -158,7 +178,7 @@ class GeneralPostureModule : IPostureModule {
         segments.add(AnalysisSegment(startLandmarkIndex = bowArmShoulder, endLandmarkIndex = drawArmShoulder, color = shoulderColor))
 
         // --- ARM ALIGNMENT (Shoulder to Elbow) ---
-        val le = compensatedPose.landmarks[bowArmElbow]
+        // le is already declared above for follow-through monitoring
         val dyL = le.y - ls.y
         val dxL = le.x - ls.x
         val bowArmAngle = atan2(dyL.toDouble(), dxL.toDouble()) * 180 / Math.PI
@@ -224,7 +244,11 @@ class GeneralPostureModule : IPostureModule {
         if (scoreHistory.size > SCORE_HISTORY_SIZE) scoreHistory.removeAt(0)
 
         // Handle Score Freeze during release
-        val finalScore = if (currentTime < freezeUntil) freezeScore else smoothedScore
+        val finalScore = if (currentTime < freezeUntil) {
+            (freezeScoreBase + dynamismBonus + followThroughBonus).coerceAtMost(1.0f)
+        } else {
+            smoothedScore
+        }
 
         return AnalysisResult(
             jointColors = jointColors,
@@ -253,6 +277,10 @@ class GeneralPostureModule : IPostureModule {
         private const val DYNAMIC_RELEASE_VELOCITY_TARGET = 0.20 // Velocity for max bonus
         private const val MAX_RELEASE_BONUS = 0.10f // Up to 10% bonus for dynamic release
         private const val SCORE_HISTORY_SIZE = 5 // ~200ms window
+        
+        private const val FOLLOW_THROUGH_DURATION_MS = 1500L
+        private const val FOLLOW_THROUGH_DROP_THRESHOLD = 0.05
+        private const val MAX_FOLLOW_THROUGH_BONUS = 0.10f
         
         private val STABILITY_KEY_POINTS = listOf(11, 12, 13, 14, 23, 24)
         private const val INITIAL_STABILITY = 0.5f
