@@ -112,7 +112,14 @@ class GeneralPostureModule : IPostureModule {
         previousPose?.let { prev ->
             val p1 = prev.landmarks[drawArmElbow]
             val p2 = compensatedPose.landmarks[drawArmElbow]
-            val velocity = Math.sqrt(Math.pow((p1.x - p2.x).toDouble(), 2.0) + Math.pow((p1.y - p2.y).toDouble(), 2.0))
+            
+            // USE Pose timestamps for velocity calculation (pixels per ms)
+            val timeDiff = (pose.timestamp - prev.timestamp).toDouble()
+            val dist = Math.sqrt(Math.pow((p1.x - p2.x).toDouble(), 2.0) + Math.pow((p1.y - p2.y).toDouble(), 2.0))
+            
+            // Normalize velocity to a standard frame rate (e.g. 33ms per frame)
+            // If timeDiff is 0 (first frame or bug), velocity is 0
+            val velocity = if (timeDiff > 0) (dist / timeDiff) * 33.0 else 0.0
             
             val isDrawn = abs(re.x - rs.x) > MIN_DRAW_DISTANCE
             
@@ -303,9 +310,9 @@ class GeneralPostureModule : IPostureModule {
         private const val WEIGHT_VERTICAL_AXIS = 0.2
         private const val SCORE_EMA_ALPHA = 0.2f
 
-        // Gaussian Sigmas (Widened for leniency)
-        private const val SIGMA_SHOULDER = 15.0
-        private const val SIGMA_ARMS = 20.0
-        private const val SIGMA_VERTICAL_AXIS = 12.0
+        // Gaussian Sigmas (Tightened for more expert scoring)
+        private const val SIGMA_SHOULDER = 10.0
+        private const val SIGMA_ARMS = 12.0
+        private const val SIGMA_VERTICAL_AXIS = 10.0
     }
 }
