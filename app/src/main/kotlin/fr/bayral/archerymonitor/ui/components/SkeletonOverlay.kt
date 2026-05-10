@@ -68,15 +68,14 @@ fun SkeletonOverlay(
 
         // Draw connections with double-layer (outline + neon center)
         connections.forEach { (start, end) ->
-            // Check if both start and end landmarks are within the detected landmarks' range
             if (start < poseResult.landmarks.size && end < poseResult.landmarks.size) {
                 val p1 = getOffset(start)
                 val p2 = getOffset(end)
                 
-                // If analysis provides a color for joints, use it, else default to Yellow
-                // Note: analysisResult?.jointColors might only have colors for specific joints.
-                // We might need to fallback to a default color for connections if specific joint colors aren't found.
-                val color = analysisResult?.jointColors?.get(start)?.let { Color(it) } ?: Color.Yellow
+                // Prioritize analysis color for specific joints if they are part of a connection
+                val color = analysisResult?.jointColors?.get(start)?.let { Color(it) } 
+                    ?: analysisResult?.jointColors?.get(end)?.let { Color(it) }
+                    ?: Color.Yellow
 
                 drawLine(color = Color.Black, start = p1, end = p2, strokeWidth = 10f)
                 drawLine(color = color, start = p1, end = p2, strokeWidth = 4f)
@@ -132,45 +131,30 @@ fun SkeletonOverlay(
         }
 
         // Draw head oval if landmarks 0 (nose), 7 (left ear), and 8 (right ear) are available
-        if (poseResult.landmarks.size > 8) { // Ensure we have landmarks up to index 8
-            val leftEarOffset = getOffset(7)
-            val rightEarOffset = getOffset(8)
-            val noseOffset = getOffset(0)
+        if (poseResult.landmarks.size > 8) {
+            val leftEar = getOffset(7)
+            val rightEar = getOffset(8)
+            val nose = getOffset(0)
 
-            // Calculate head center and dimensions based on ears and nose
-            // Center X is the midpoint between the ears.
-            val headCenterX = (leftEarOffset.x + rightEarOffset.x) / 2f
-            // Center Y is estimated as the midpoint between the nose's Y and the ears' average Y.
-            // This places the oval vertically centered between the nose and the ears.
-            val headCenterY = (noseOffset.y + (leftEarOffset.y + rightEarOffset.y) / 2f) / 2f
+            val headCenterX = (leftEar.x + rightEar.x) / 2f
+            val headCenterY = (nose.y + (leftEar.y + rightEar.y) / 2f) / 2f
 
-            // Head width is the distance between the ears.
-            val headWidth = abs(rightEarOffset.x - leftEarOffset.x)
-            // Head height is estimated as a ratio of the width. 1.2 is an approximation, can be tuned.
+            val headWidth = abs(rightEar.x - leftEar.x) * 1.5f // Make it slightly wider than ear-to-ear
             val headHeight = headWidth * 1.2f 
 
-            // Define oval bounds (top-left corner and size)
-            val ovalLeft = headCenterX - headWidth / 2f
-            val ovalTop = headCenterY - headHeight / 2f
-            val ovalRight = headCenterX + headWidth / 2f
-            val ovalBottom = headCenterY + headHeight / 2f
+            val ovalTopLeft = Offset(headCenterX - headWidth / 2f, headCenterY - headHeight / 2f)
+            val ovalSize = androidx.compose.ui.geometry.Size(headWidth, headHeight)
 
-            // Define colors for the head oval. Using Gray for contrast.
-            val ovalOutlineColor = Color.Gray
-            val ovalFillColor = Color.Gray.copy(alpha = 0.3f) // Semi-transparent fill for better visibility
-
-            // Draw the head oval outline
             drawOval(
-                color = ovalOutlineColor,
-                style = Stroke(width = 6f), // Outline thickness
-                topLeft = Offset(ovalLeft, ovalTop),
-                size = androidx.compose.ui.geometry.Size(headWidth, headHeight)
+                color = Color.Gray.copy(alpha = 0.3f),
+                topLeft = ovalTopLeft,
+                size = ovalSize
             )
-            // Draw the head oval fill
             drawOval(
-                color = ovalFillColor,
-                topLeft = Offset(ovalLeft, ovalTop),
-                size = androidx.compose.ui.geometry.Size(headWidth, headHeight)
+                color = Color.Gray,
+                style = Stroke(width = 4f),
+                topLeft = ovalTopLeft,
+                size = ovalSize
             )
         }
     }
