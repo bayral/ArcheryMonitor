@@ -171,5 +171,7 @@ enum class AppState {
     /** Replay is active and synchronized with AI. */
     RECORDING, 
     /** Buffering the initial delay before replay starts. */
-    BUFFERING
+    BUFFERING,
+    /** Replay mode is active to analyze cached frames. */
+    REPLAY
 }

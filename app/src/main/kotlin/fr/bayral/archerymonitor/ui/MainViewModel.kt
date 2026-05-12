@@ -25,8 +25,32 @@ class MainViewModel @Inject constructor(
     private val settingsManager: SettingsManager,
     private val decoder: H264Decoder,
     private val moduleFactory: PostureModuleFactory,
-    private val orientationMonitor: OrientationMonitor
+    private val orientationMonitor: OrientationMonitor,
+    private val visualCache: VisualCache,
+    private val videoExporter: VideoExporter
 ) : ViewModel() {
+// ...
+    fun exportReplay(outputFile: java.io.File, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val bitmaps = mutableListOf<Bitmap>()
+            for (i in 0 until visualCache.size) {
+                visualCache.getFrameAt(i)?.let { bitmaps.add(it) }
+            }
+            
+            if (bitmaps.isEmpty()) {
+                onComplete(false)
+                return@launch
+            }
+
+            val success = videoExporter.export(
+                bitmaps = bitmaps,
+                outputFile = outputFile,
+                width = bitmaps[0].width,
+                height = bitmaps[0].height
+            )
+            onComplete(success)
+        }
+    }
 
     private val _uiState = MutableStateFlow(
         MainUiState(
@@ -277,9 +301,45 @@ class MainViewModel @Inject constructor(
         decoder.stop()
     }
 
+    fun getReusableBitmap(width: Int, height: Int): Bitmap {
+        return visualCache.getReusableBitmap(width, height)
+    }
+
+    private val _replayIndex = MutableStateFlow(0)
+    val replayIndex: StateFlow<Int> = _replayIndex.asStateFlow()
+
+    val currentReplayFrame: StateFlow<Bitmap?> = _replayIndex
+        .map { index -> visualCache.getFrameAt(index) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setReplayIndex(index: Int) {
+        _replayIndex.value = index.coerceIn(0, (visualCache.size - 1).coerceAtLeast(0))
+    }
+
+    fun getCacheSize(): Int = visualCache.size
+
+    fun enterReplayMode() {
+        if (visualCache.size > 0) {
+            _uiState.update { it.copy(appState = AppState.REPLAY) }
+            _replayIndex.value = visualCache.size - 1
+        }
+    }
+
+    fun exitReplayMode() {
+        _uiState.update { it.copy(appState = AppState.RECORDING) }
+        visualCache.clear()
+    }
+
+    fun recordFrameToCache(bitmap: Bitmap) {
+        if (_uiState.value.appState == AppState.RECORDING) {
+            visualCache.addFrame(bitmap)
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         stopCapture()
+        visualCache.clear()
     }
 }
 

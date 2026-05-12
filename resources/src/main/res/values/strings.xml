@@ -20,4 +20,9 @@
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Compound</string>
     <string name="title_trophies">Trophy Room</string>
+    <string name="btn_replay">REPLAY</string>
+    <string name="btn_resume_live">LIVE</string>
+    <string name="btn_export">SAVE</string>
+    <string name="export_success">Video saved!</string>
+    <string name="export_failed">Export failed</string>
 </resources>

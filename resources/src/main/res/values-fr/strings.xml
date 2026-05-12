@@ -21,4 +21,9 @@
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Poulies</string>
     <string name="title_trophies">Espace Trophées</string>
+    <string name="btn_replay">REPLAY</string>
+    <string name="btn_resume_live">DIRECT</string>
+    <string name="btn_export">ENREGISTRER</string>
+    <string name="export_success">Vidéo enregistrée !</string>
+    <string name="export_failed">Échec de l\'export</string>
 </resources>

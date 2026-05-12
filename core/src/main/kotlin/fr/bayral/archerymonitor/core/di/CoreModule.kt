@@ -24,4 +24,14 @@ object CoreModule {
     @Provides
     @Singleton
     fun provideSyncEngine(engine: SyncEngineImpl): ISyncEngine = engine
+
+    @Provides
+    @Singleton
+    fun provideVisualCache(): fr.bayral.archerymonitor.core.renderer.VisualCache = 
+        fr.bayral.archerymonitor.core.renderer.VisualCache(300)
+
+    @Provides
+    @Singleton
+    fun provideVideoExporter(): fr.bayral.archerymonitor.core.renderer.VideoExporter = 
+        fr.bayral.archerymonitor.core.renderer.VideoExporter()
 }
