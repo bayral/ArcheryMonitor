@@ -1,4 +1,5 @@
 <resources>
+    <string name="app_name">Archery Monitor</string>
     <string name="status_buffering">● BUFFERING…</string>
     <string name="status_recording">● RECORDING / REPLAY</string>
     <string name="label_delay">Delay: %1$ds</string>
@@ -25,4 +26,7 @@
     <string name="btn_export">SAVE</string>
     <string name="export_success">Video saved!</string>
     <string name="export_failed">Export failed</string>
+    <string name="export_success_downloads">Video saved to Movies</string>
+    <string name="label_calibration_guide">CALIBRATION: Center archer on vertical line</string>
+    <string name="error_replay_empty">No frames recorded yet</string>
 </resources>

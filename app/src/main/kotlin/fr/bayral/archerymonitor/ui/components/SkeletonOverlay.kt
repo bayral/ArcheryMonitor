@@ -16,8 +16,9 @@ import fr.bayral.archerymonitor.core.interfaces.PoseResult
 import fr.bayral.archerymonitor.core.renderer.FrameComposer
 
 /**
- * High-contrast skeleton overlay that uses FrameComposer for rendering.
- * Supports capturing the final composed frame for WYSIWYG caching.
+ * Compose wrapper for the [FrameComposer] drawing logic.
+ * This component handles the rendering of the skeletal overlay and AI analysis results
+ * on top of the camera preview.
  */
 @Composable
 fun SkeletonOverlay(
@@ -25,6 +26,8 @@ fun SkeletonOverlay(
     analysisResult: AnalysisResult?,
     transformationMatrix: Matrix,
     modifier: Modifier = Modifier,
+    isCalibrationMode: Boolean = false,
+    calibrationText: String? = null,
     getReusableBitmap: ((Int, Int) -> Bitmap)? = null,
     onFrameCaptured: ((Bitmap) -> Unit)? = null
 ) {
@@ -36,11 +39,13 @@ fun SkeletonOverlay(
                 canvas = canvas,
                 poseResult = poseResult,
                 analysisResult = analysisResult,
-                transformationMatrix = transformationMatrix
+                transformationMatrix = transformationMatrix,
+                isCalibrationMode = isCalibrationMode,
+                calibrationText = calibrationText
             )
             
             // Capture for VisualCache using reusable bitmaps
-            if (onFrameCaptured != null && getReusableBitmap != null) {
+            if (onFrameCaptured != null && getReusableBitmap != null && !isCalibrationMode) {
                 val width = size.width.toInt().coerceAtLeast(1)
                 val height = size.height.toInt().coerceAtLeast(1)
                 

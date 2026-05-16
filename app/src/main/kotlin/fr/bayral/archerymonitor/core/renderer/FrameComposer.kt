@@ -4,11 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RectF
 import fr.bayral.archerymonitor.core.interfaces.AnalysisResult
 import fr.bayral.archerymonitor.core.interfaces.PoseResult
-import kotlin.math.abs
 
 /**
  * Service responsible for drawing the final visual composition of a frame.
@@ -45,8 +42,15 @@ class FrameComposer {
         canvas: Canvas,
         poseResult: PoseResult?,
         analysisResult: AnalysisResult?,
-        transformationMatrix: Matrix
+        transformationMatrix: Matrix,
+        isCalibrationMode: Boolean = false,
+        calibrationText: String? = null
     ) {
+        if (isCalibrationMode) {
+            drawCalibrationGuide(canvas, calibrationText)
+            return
+        }
+
         if (poseResult == null) return
 
         val mappedPoints = FloatArray(poseResult.landmarks.size * 2)
@@ -73,8 +77,8 @@ class FrameComposer {
                 val (x1, y1) = getCoords(start)
                 val (x2, y2) = getCoords(end)
                 
-                val color = analysisResult?.jointColors?.get(start) ?: Color.YELLOW
-                
+                val color = analysisResult?.jointColors?.get(start)?.toInt() ?: Color.YELLOW
+
                 linePaint.color = color
                 canvas.drawLine(x1, y1, x2, y2, outlinePaint)
                 canvas.drawLine(x1, y1, x2, y2, linePaint)
@@ -84,11 +88,63 @@ class FrameComposer {
         // Draw joints
         poseResult.landmarks.forEachIndexed { index, _ ->
             val (x, y) = getCoords(index)
-            val jointColor = analysisResult?.jointColors?.get(index) ?: Color.YELLOW
-            
+            val jointColor = analysisResult?.jointColors?.get(index)?.toInt() ?: Color.YELLOW
+
             canvas.drawCircle(x, y, 8f, circleOutlinePaint)
             jointPaint.color = jointColor
             canvas.drawCircle(x, y, 4f, jointPaint)
+        }
+    }
+
+    private fun drawCalibrationGuide(canvas: Canvas, text: String?) {
+        val w = canvas.width.toFloat()
+        val h = canvas.height.toFloat()
+        
+        linePaint.color = Color.CYAN
+        linePaint.alpha = 100
+        linePaint.strokeWidth = 4f
+        linePaint.style = Paint.Style.STROKE
+
+        // 1. Vertical Center Line
+        canvas.drawLine(w / 2, 0f, w / 2, h, linePaint)
+
+        // 2. Draw Archer Silhouette (Stylized)
+        val centerX = w / 2
+        val centerY = h * 0.45f
+        val headRadius = h * 0.05f
+        val shoulderWidth = w * 0.25f
+        val torsoHeight = h * 0.3f
+
+        // Head
+        canvas.drawCircle(centerX, centerY - headRadius * 1.5f, headRadius, linePaint)
+        
+        // Torso & Shoulders
+        canvas.drawLine(centerX - shoulderWidth / 2, centerY, centerX + shoulderWidth / 2, centerY, linePaint)
+        canvas.drawLine(centerX, centerY, centerX, centerY + torsoHeight, linePaint)
+        
+        // Arms
+        canvas.drawLine(centerX - shoulderWidth / 2, centerY, centerX - shoulderWidth * 1.2f, centerY, linePaint)
+        canvas.drawLine(centerX + shoulderWidth / 2, centerY, centerX + shoulderWidth * 0.8f, centerY - headRadius, linePaint)
+
+        // 3. Shoulder target zones
+        linePaint.alpha = 180
+        linePaint.strokeWidth = 2f
+        val boxSize = headRadius * 0.8f
+        canvas.drawRect(centerX - shoulderWidth / 2 - boxSize, centerY - boxSize, centerX - shoulderWidth / 2 + boxSize, centerY + boxSize, linePaint)
+        canvas.drawRect(centerX + shoulderWidth / 2 - boxSize, centerY - boxSize, centerX + shoulderWidth / 2 + boxSize, centerY + boxSize, linePaint)
+
+        // 4. Ground/Feet guide
+        canvas.drawLine(centerX - shoulderWidth, centerY + torsoHeight + h * 0.2f, centerX + shoulderWidth, centerY + torsoHeight + h * 0.2f, linePaint)
+
+        // Text
+        val textPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 40f
+            isAntiAlias = true
+        }
+        text?.let { 
+            val textWidth = textPaint.measureText(it)
+            canvas.drawText(it, (w - textWidth) / 2, 120f, textPaint) 
         }
     }
 }
