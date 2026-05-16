@@ -4,7 +4,7 @@
     <string name="status_recording">● DIFFÉRÉ / REPLAY</string>
     <string name="label_delay">Délai: %1$ds</string>
     <string name="btn_stop">STOP</string>
-    <string name="btn_record">DÉMARRER</string>
+    <string name="btn_record">START</string>
     <string name="btn_ai_off">Désactiver l\'IA</string>
     <string name="btn_ai_on">Activer l\'IA</string>
     <string name="btn_camera_back">Cam. dos</string>

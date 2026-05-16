@@ -43,6 +43,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
@@ -98,10 +100,10 @@ fun MainScreen(viewModel: MainViewModel) {
                     )
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 10) }) { Text("-10") }
-                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 1) }) { Text("-1") }
-                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 1) }) { Text("+1") }
-                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 10) }) { Text("+10") }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 10) }) { Text("-10", textAlign = TextAlign.Center) }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 1) }) { Text("-1", textAlign = TextAlign.Center) }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 1) }) { Text("+1", textAlign = TextAlign.Center) }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 10) }) { Text("+10", textAlign = TextAlign.Center) }
                     }
 
                     Button(
@@ -120,7 +122,7 @@ fun MainScreen(viewModel: MainViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text(stringResource(R.string.btn_export))
+                        Text(stringResource(R.string.btn_export), textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -159,7 +161,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 contentColor = if (uiState.isCalibrationMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp).size(48.dp)
             ) {
-                Text(if (uiState.isCalibrationMode) "🎯" else "⚪", style = MaterialTheme.typography.titleLarge)
+                Text(if (uiState.isCalibrationMode) "🎯" else "⚪", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             }
         }
 
@@ -186,10 +188,10 @@ fun MainScreen(viewModel: MainViewModel) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
-                        Text(text = "$scorePercent%", color = scoreColor, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                        Text(text = "$scorePercent%", color = scoreColor, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), textAlign = TextAlign.Center)
                     }
                     Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
-                        Text(text = "Shots: ${result.releaseCount}", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                        Text(text = "Shots: ${result.releaseCount}", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -201,10 +203,10 @@ fun MainScreen(viewModel: MainViewModel) {
                 val badgeName = viewModel.getBadgeDefinitions().find { it.id == badgeId }?.labelResId?.let { stringResource(it) } ?: badgeId
                 Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge, shadowElevation = 8.dp) {
                     Row(modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(icon, style = MaterialTheme.typography.headlineMedium)
+                        Text(icon, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                         Column {
-                            Text(stringResource(R.string.badge_unlocked_title), style = MaterialTheme.typography.labelSmall)
-                            Text(badgeName, style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.badge_unlocked_title), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                            Text(badgeName, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
                         }
                     }
                 }
@@ -215,29 +217,29 @@ fun MainScreen(viewModel: MainViewModel) {
         if (showTrophies) {
             AlertDialog(
                 onDismissRequest = { showTrophies = false },
-                title = { Text(stringResource(R.string.title_trophies)) },
+                title = { Text(stringResource(R.string.title_trophies), textAlign = TextAlign.Center) },
                 text = {
                     val unlocked = viewModel.unlockedBadges
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         viewModel.getBadgeDefinitions().forEach { badge ->
                             val isUnlocked = unlocked.contains(badge.id)
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = if (isUnlocked) viewModel.getBadgeIcon(badge.id) else "🔒", style = MaterialTheme.typography.headlineSmall)
+                                Text(text = if (isUnlocked) viewModel.getBadgeIcon(badge.id) else "🔒", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
                                 Spacer(Modifier.width(16.dp))
                                 Column {
-                                    Text(text = stringResource(badge.labelResId), style = MaterialTheme.typography.titleMedium, color = if (isUnlocked) Color.Unspecified else Color.Gray)
-                                    Text(text = "${(badge.minScore * 100).toInt()}% / ${badge.durationSeconds}s", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    Text(text = stringResource(badge.labelResId), style = MaterialTheme.typography.titleMedium, color = if (isUnlocked) Color.Unspecified else Color.Gray, textAlign = TextAlign.Start)
+                                    Text(text = "${(badge.minScore * 100).toInt()}% / ${badge.durationSeconds}s", style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = TextAlign.Start)
                                 }
                             }
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { showTrophies = false }) { Text("OK") } }
+                confirmButton = { TextButton(onClick = { showTrophies = false }) { Text("OK", textAlign = TextAlign.Center) } }
             )
         }
 
         IconButton(onClick = { showTrophies = true }, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 16.dp, end = 16.dp)) {
-            Text("🏆", style = MaterialTheme.typography.headlineSmall)
+            Text("🏆", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         }
     }
 }
@@ -389,21 +391,24 @@ fun MainScreenContent(
         // Status Indicators
         Column(modifier = Modifier.fillMaxSize().padding(top = 80.dp, start = 32.dp)) {
             if (uiState.appState == AppState.BUFFERING) {
-                Text(stringResource(R.string.status_buffering), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.status_buffering), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
             } else if (uiState.appState == AppState.RECORDING) {
-                Text(stringResource(R.string.status_recording), color = Color.Red, style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.status_recording), color = Color.Red, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
             }
 
             if (uiState.appState == AppState.IDLE) {
                 var expanded by remember { mutableStateOf(false) }
                 Box {
                     Button(onClick = { expanded = true }) {
-                        Text(if (uiState.selectedModule == null) stringResource(R.string.label_none) else if (uiState.selectedModule.labelResId == 0) "General" else stringResource(uiState.selectedModule.labelResId))
+                        Text(
+                            text = if (uiState.selectedModule == null) stringResource(R.string.label_none) else if (uiState.selectedModule.labelResId == 0) "General" else stringResource(uiState.selectedModule.labelResId),
+                            textAlign = TextAlign.Center
+                        )
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.label_none), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(null); expanded = false })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.label_none), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center) }, onClick = { onSelectModule(null); expanded = false })
                         availableModules.forEach { module ->
-                            DropdownMenuItem(text = { Text(stringResource(module.labelResId), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(module); expanded = false })
+                            DropdownMenuItem(text = { Text(stringResource(module.labelResId), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center) }, onClick = { onSelectModule(module); expanded = false })
                         }
                     }
                 }
@@ -412,20 +417,20 @@ fun MainScreenContent(
                     Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         var latExpanded by remember { mutableStateOf(false) }
                         Box {
-                            FilledTonalButton(onClick = { latExpanded = true }) { Text(if (uiState.archerySettings.laterality == Laterality.RIGHT_HANDED) "R" else "L") }
+                            FilledTonalButton(onClick = { latExpanded = true }) { Text(if (uiState.archerySettings.laterality == Laterality.RIGHT_HANDED) "R" else "L", textAlign = TextAlign.Center) }
                             DropdownMenu(expanded = latExpanded, onDismissRequest = { latExpanded = false }) {
-                                DropdownMenuItem(text = { Text(stringResource(R.string.label_right_handed)) }, onClick = { onSetLaterality(Laterality.RIGHT_HANDED); latExpanded = false })
-                                DropdownMenuItem(text = { Text(stringResource(R.string.label_left_handed)) }, onClick = { onSetLaterality(Laterality.LEFT_HANDED); latExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_right_handed), textAlign = TextAlign.Center) }, onClick = { onSetLaterality(Laterality.RIGHT_HANDED); latExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_left_handed), textAlign = TextAlign.Center) }, onClick = { onSetLaterality(Laterality.LEFT_HANDED); latExpanded = false })
                             }
                         }
 
                         var bowExpanded by remember { mutableStateOf(false) }
                         Box {
-                            FilledTonalButton(onClick = { bowExpanded = true }) { Text(uiState.archerySettings.bowType.name) }
+                            FilledTonalButton(onClick = { bowExpanded = true }) { Text(uiState.archerySettings.bowType.name, textAlign = TextAlign.Center) }
                             DropdownMenu(expanded = bowExpanded, onDismissRequest = { bowExpanded = false }) {
-                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_recurve)) }, onClick = { onSetBowType(BowType.RECURVE); bowExpanded = false })
-                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_barebow)) }, onClick = { onSetBowType(BowType.BAREBOW); bowExpanded = false })
-                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_compound)) }, onClick = { onSetBowType(BowType.COMPOUND); bowExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_recurve), textAlign = TextAlign.Center) }, onClick = { onSetBowType(BowType.RECURVE); bowExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_barebow), textAlign = TextAlign.Center) }, onClick = { onSetBowType(BowType.BAREBOW); bowExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_compound), textAlign = TextAlign.Center) }, onClick = { onSetBowType(BowType.COMPOUND); bowExpanded = false })
                             }
                         }
                     }
@@ -452,7 +457,7 @@ fun MainScreenContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (uiState.appState == AppState.IDLE) {
-                Text(text = stringResource(R.string.label_delay, uiState.delaySeconds.toInt()), color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.label_delay, uiState.delaySeconds.toInt()), color = Color.White, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                 Slider(value = uiState.delaySeconds, onValueChange = { onSetDelay(it) }, valueRange = 1f..30f, modifier = Modifier.fillMaxWidth())
             }
 
@@ -463,15 +468,26 @@ fun MainScreenContent(
                     colors = ButtonDefaults.buttonColors(containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
                 ) {
-                    Text(if (uiState.appState != AppState.IDLE) stringResource(R.string.btn_stop) else stringResource(R.string.btn_record))
+                    Text(
+                        text = if (uiState.appState != AppState.IDLE) stringResource(R.string.btn_stop) else stringResource(R.string.btn_record),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 if (uiState.appState == AppState.IDLE) {
                     Button(onClick = { onToggleAi() }, modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                        Text(if (uiState.isAiEnabled) stringResource(R.string.btn_ai_off) else stringResource(R.string.btn_ai_on))
+                        Text(
+                            text = if (uiState.isAiEnabled) stringResource(R.string.btn_ai_off) else stringResource(R.string.btn_ai_on),
+                            textAlign = TextAlign.Center
+                        )
                     }
                     Button(onClick = { onToggleCamera() }, modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                        Text(if (uiState.useFrontCamera) stringResource(R.string.btn_camera_back) else stringResource(R.string.btn_camera_front))
+                        Text(
+                            text = if (uiState.useFrontCamera) stringResource(R.string.btn_camera_back) else stringResource(R.string.btn_camera_front),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -483,7 +499,7 @@ fun MainScreenContent(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
-                    Text(stringResource(R.string.btn_replay))
+                    Text(stringResource(R.string.btn_replay), textAlign = TextAlign.Center)
                 }
             }
         }
