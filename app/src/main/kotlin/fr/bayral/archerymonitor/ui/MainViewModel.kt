@@ -79,6 +79,7 @@ class MainViewModel @Inject constructor(
 
     fun toggleRecording() {
         val newState = if (_uiState.value.appState != AppState.IDLE) {
+            bufferingJob?.cancel()
             decoder.stop()
             cameraProvider.setRecording(false)
             AppState.IDLE
@@ -176,10 +177,13 @@ class MainViewModel @Inject constructor(
 
     fun onDecoderStarted() {
         if (_uiState.value.appState == AppState.BUFFERING) {
-            viewModelScope.launch {
+            bufferingJob?.cancel()
+            bufferingJob = viewModelScope.launch {
                 val waitTime = (_uiState.value.delaySeconds * 1000).toLong().coerceAtLeast(500L)
                 delay(waitTime)
-                _uiState.value = _uiState.value.copy(appState = AppState.RECORDING)
+                if (_uiState.value.appState == AppState.BUFFERING) {
+                    _uiState.value = _uiState.value.copy(appState = AppState.RECORDING)
+                }
             }
         }
     }
@@ -343,6 +347,7 @@ class MainViewModel @Inject constructor(
     }
 
     private var currentSurface: android.view.Surface? = null
+    private var bufferingJob: Job? = null
     
     override fun onCleared() {
         super.onCleared()
