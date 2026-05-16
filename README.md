@@ -5,9 +5,11 @@ Archery Monitor is a high-performance Android application designed for archers t
 ## ✨ Key Features
 
 *   **⏱️ Adjustable Delayed Replay:** Configure a delay (1s to 30s) to review your shots immediately after shooting.
+*   **🎥 WYSIWYG Replay Mode:** Review your shots frame-by-frame with synchronized AI analysis. Use instant navigation and export your best clips as high-quality MP4 files directly to your "Movies" folder.
 *   **🤖 Advanced AI Analysis:** Real-time biomechanical analysis of shoulders, arms, and body axis, with automatic **device tilt compensation**.
 *   **📊 Gaussian Scoring & Feedback:** Smooth, non-linear scoring system that rewards perfection and filters micro-jitters with an **Exponential Moving Average (EMA)**.
 *   **🏹 Release Detection:** Automatically detects shots based on recoil velocity, with a **dynamism bonus** for clean follow-throughs and a 3-second score freeze.
+*   **🎯 Interactive Calibration:** Use the integrated archer silhouette guide (selectable for left/right-handed archers) to align your position perfectly with the camera.
 *   **🏆 Achievement System:** Unlock badges (Perfect Shot, Solid Form, Statue) based on your shot quality and stability.
 *   **📷 Immersive Experience:** Full-screen mode and **auto-brightness** adjustment for optimal outdoor visibility.
 *   **🚀 High Performance:** Optimized AI pipeline with **frame skipping** and **640px resolution** analysis for the best balance of speed and precision.

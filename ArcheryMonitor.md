@@ -2,7 +2,7 @@
 
 ## 📌 Context & Goal
 Build a high-performance Android application for archers, providing **real-time biomechanical coaching**.
-**Core Feature:** Delayed video feedback (0-30s) with a synchronized, intelligent AI skeleton (MediaPipe) overlaid on the delayed footage, featuring real-time biomechanical analysis.
+**Core Feature:** Delayed video feedback (0-30s) with a synchronized, intelligent AI skeleton (MediaPipe) overlaid on the delayed footage, featuring real-time biomechanical analysis, **frame-by-frame replay navigation**, and **video export**.
 
 ---
 
@@ -38,10 +38,18 @@ To enhance the archer's workflow, the application supports Bluetooth camera remo
 ---
 
 ## 🏗 2. Software Modules
-- **:core:** Common interfaces, `OrientationMonitor`, `MatrixUtils`, `PoseUtils`.
+- **:core:** Common interfaces, `OrientationMonitor`, `MatrixUtils`, `PoseUtils`, and the rendering engine (`FrameComposer`, `VideoExporter`, `VisualCache`).
 - **:feature-camera:** Hardware-accelerated H.264 Encoder/Decoder.
 - **:feature-ai:** MediaPipe provider + `GeneralPostureModule` (Gaussian scoring).
-- **:app:** UI (Immersive Mode), Shot Counter, and Badge system.
+- **:app:** UI (Immersive Mode), Shot Counter, Badge system, and Replay Navigation interface.
+
+---
+
+## 🏹 3. Enhanced Features
+- **Replay Navigation:** WYSIWYG playback from `VisualCache` with frame stepping (-10, -1, +1, +10) and direct export to `Movies` directory via MediaStore.
+- **Dynamic Calibration:** Integrated archer silhouette guide that adjusts dynamically based on the archer's configured **laterality** (Right/Left-handed).
+- **UI/UX Polish:** Centered button labels ("START", "REPLAY", "Cam. selfie", etc.) optimized for portrait layout, with support for different locales (EN, FR, IT).
+- **Export Robustness:** Use of `MediaScannerConnection` to guarantee immediate visibility of exported videos in system galleries.
 
 ---
 
