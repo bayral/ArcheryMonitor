@@ -1,7 +1,13 @@
 package fr.bayral.archerymonitor.ui
 
-import android.graphics.Bitmap
+import android.content.ContentValues
+import android.content.Context
+import android.media.MediaScannerConnection
+import android.provider.MediaStore
+import android.os.Build
+import android.graphics.Canvas
 import android.os.Environment
+import android.view.TextureView
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -32,7 +38,10 @@ import fr.bayral.archerymonitor.core.interfaces.Laterality
 import fr.bayral.archerymonitor.resources.R
 import fr.bayral.archerymonitor.ui.components.SkeletonOverlay
 import fr.bayral.archerymonitor.ui.theme.ArcheryMonitorTheme
+import fr.bayral.archerymonitor.core.renderer.FrameComposer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -47,6 +56,10 @@ fun MainScreen(viewModel: MainViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    val exportSuccessMsg = stringResource(R.string.export_success_downloads)
+    val exportFailedMsg = stringResource(R.string.export_failed)
+    val errorReplayEmptyMsg = stringResource(R.string.error_replay_empty)
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.appState == AppState.REPLAY) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
@@ -58,9 +71,24 @@ fun MainScreen(viewModel: MainViewModel) {
                     )
                 }
 
+                // Top Controls (Exit)
+                IconButton(
+                    onClick = { viewModel.exitReplayMode() },
+                    modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp).background(Color.Black.copy(alpha = 0.5f), shape = MaterialTheme.shapes.medium)
+                ) {
+                    Text("🔙", style = MaterialTheme.typography.headlineSmall)
+                }
+
+                // Bottom Navigation & Export
                 Column(
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.large)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Slider(
                         value = replayIndex.toFloat(),
@@ -68,27 +96,31 @@ fun MainScreen(viewModel: MainViewModel) {
                         valueRange = 0f..(viewModel.getCacheSize() - 1).coerceAtLeast(0).toFloat(),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Button(onClick = { viewModel.setReplayIndex(replayIndex - 1) }) { Text("<") }
-                        Button(onClick = { viewModel.exitReplayMode() }) { Text(stringResource(R.string.btn_resume_live)) }
-                        
-                        // Save Button
-                        Button(onClick = {
-                            val moviesDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-                            val file = File(moviesDir, "archery_replay_${System.currentTimeMillis()}.mp4")
-                            viewModel.exportReplay(file) { success ->
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 10) }) { Text("-10") }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex - 1) }) { Text("-1") }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 1) }) { Text("+1") }
+                        FilledTonalButton(onClick = { viewModel.setReplayIndex(replayIndex + 10) }) { Text("+10") }
+                    }
+
+                    Button(
+                        onClick = {
+                            val tempFile = File(context.cacheDir, "temp_replay.mp4")
+                            viewModel.exportReplay(tempFile) { success ->
                                 scope.launch {
+                                    val savedToPublic = saveVideoToPublicDownloads(context, tempFile)
                                     snackbarHostState.showSnackbar(
-                                        if (success) context.getString(R.string.export_success)
-                                        else context.getString(R.string.export_failed)
+                                        if (success && savedToPublic) exportSuccessMsg
+                                        else exportFailedMsg
                                     )
                                 }
                             }
-                        }) {
-                            Text(stringResource(R.string.btn_export))
-                        }
-
-                        Button(onClick = { viewModel.setReplayIndex(replayIndex + 1) }) { Text(">") }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text(stringResource(R.string.btn_export))
                     }
                 }
             }
@@ -107,39 +139,58 @@ fun MainScreen(viewModel: MainViewModel) {
                 onSelectModule = { viewModel.selectModule(it) },
                 onSetLaterality = { viewModel.setLaterality(it) },
                 onSetBowType = { viewModel.setBowType(it) },
-                onShowTrophies = { showTrophies = true },
                 onSurfaceCreated = { viewModel.startDelayedPlayback(it) },
-                onEnterReplay = { viewModel.enterReplayMode() },
-                viewModel = viewModel // Pass viewModel for internal callbacks
+                onEnterReplay = {
+                    if (!viewModel.enterReplayMode()) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar(errorReplayEmptyMsg)
+                        }
+                    }
+                },
+                viewModel = viewModel
             )
+        }
+
+        // Floating Calibration Toggle (IDLE only)
+        if (uiState.appState == AppState.IDLE) {
+            FloatingActionButton(
+                onClick = { viewModel.toggleCalibration() },
+                containerColor = if (uiState.isCalibrationMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                contentColor = if (uiState.isCalibrationMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp).size(48.dp)
+            ) {
+                Text(if (uiState.isCalibrationMode) "🎯" else "⚪", style = MaterialTheme.typography.titleLarge)
+            }
         }
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 160.dp)
         )
 
         // 1. Score Display
-        uiState.analysisResult?.let { result ->
-            val scorePercent = (result.score * 100).toInt()
-            val scoreColor = when {
-                result.score >= 0.85f -> Color.Green
-                result.score >= 0.60f -> Color.Yellow
-                else -> Color.Red
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 90.dp, end = 16.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
-                    Text(text = "$scorePercent%", color = scoreColor, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+        if (uiState.appState != AppState.REPLAY) {
+            uiState.analysisResult?.let { result ->
+                val scorePercent = (result.score * 100).toInt()
+                val scoreColor = when {
+                    result.score >= 0.85f -> Color.Green
+                    result.score >= 0.60f -> Color.Yellow
+                    else -> Color.Red
                 }
-                Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
-                    Text(text = "Shots: ${result.releaseCount}", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 90.dp, end = 16.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
+                        Text(text = "$scorePercent%", color = scoreColor, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                    }
+                    Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {
+                        Text(text = "Shots: ${result.releaseCount}", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                    }
                 }
             }
         }
@@ -204,13 +255,14 @@ fun MainScreenContent(
     onSelectModule: (IPostureModule?) -> Unit,
     onSetLaterality: (Laterality) -> Unit,
     onSetBowType: (BowType) -> Unit,
-    onShowTrophies: () -> Unit,
     onEnterReplay: () -> Unit,
     onSurfaceCreated: (android.view.Surface) -> Unit = {},
     viewModel: MainViewModel
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var surfaceProvider by remember { mutableStateOf<androidx.camera.core.Preview.SurfaceProvider?>(null) }
+    var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
+    val frameComposer = remember { FrameComposer() }
 
     DisposableEffect(lifecycleOwner, surfaceProvider) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -229,6 +281,10 @@ fun MainScreenContent(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        var boxSize by remember { mutableStateOf(IntSize.Zero) }
+        val density = LocalDensity.current
+
+        // Camera Preview
         AndroidView(
             factory = { context ->
                 PreviewView(context).apply {
@@ -237,40 +293,41 @@ fun MainScreenContent(
                     this.surfaceProvider.also { surfaceProvider = it }
                 }
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().onSizeChanged { boxSize = it }
         )
 
-        if ((uiState.appState != AppState.IDLE) && (uiState.delaySeconds > 0)) {
-            var boxSize by remember { mutableStateOf(IntSize.Zero) }
-            val density = LocalDensity.current
+        // Delayed Playback or Calibration Overlay
+        if ((uiState.appState != AppState.IDLE && uiState.delaySeconds > 0) || uiState.isCalibrationMode) {
+            Box(modifier = Modifier.fillMaxSize().clipToBounds(), contentAlignment = Alignment.Center) {
+                if (uiState.appState != AppState.IDLE) {
+                    val isPortrait = (uiState.videoRotation == 90 || uiState.videoRotation == 270)
+                    val contentW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
+                    val contentH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
 
-            Box(modifier = Modifier.fillMaxSize().onSizeChanged { boxSize = it }.clipToBounds(), contentAlignment = Alignment.Center) {
-                val isPortrait = (uiState.videoRotation == 90 || uiState.videoRotation == 270)
-                val contentW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
-                val contentH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
+                    val modifier = if (boxSize != IntSize.Zero && contentW > 0 && contentH > 0) {
+                        val scale = maxOf(boxSize.width.toFloat() / contentW, boxSize.height.toFloat() / contentH)
+                        Modifier.requiredSize(width = with(density) { (contentW * scale).toDp() }, height = with(density) { (contentH * scale).toDp() })
+                    } else {
+                        Modifier.fillMaxSize()
+                    }
 
-                val modifier = if (boxSize != IntSize.Zero && contentW > 0 && contentH > 0) {
-                    val scale = maxOf(boxSize.width.toFloat() / contentW, boxSize.height.toFloat() / contentH)
-                    Modifier.requiredSize(width = with(density) { (contentW * scale).toDp() }, height = with(density) { (contentH * scale).toDp() })
-                } else {
-                    Modifier.fillMaxSize()
+                    AndroidView(
+                        factory = { context ->
+                            TextureView(context).apply {
+                                textureViewRef = this
+                                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                                    override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { onSurfaceCreated(android.view.Surface(st)) }
+                                    override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
+                                    override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
+                                    override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+                                }
+                            }
+                        },
+                        modifier = modifier
+                    )
                 }
 
-                AndroidView(
-                    factory = { context ->
-                        android.view.TextureView(context).apply {
-                            surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
-                                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { onSurfaceCreated(android.view.Surface(st)) }
-                                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-                                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
-                                override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
-                            }
-                        }
-                    },
-                    modifier = modifier
-                )
-
-                if (uiState.isAiEnabled && boxSize != IntSize.Zero && contentW > 0) {
+                if (boxSize != IntSize.Zero) {
                     val matrix = remember(uiState.videoWidth, uiState.videoHeight, uiState.videoRotation, uiState.useFrontCamera, boxSize) {
                         fr.bayral.archerymonitor.core.utils.MatrixUtils.getTransformationMatrix(
                             srcWidth = uiState.videoWidth, srcHeight = uiState.videoHeight,
@@ -278,18 +335,58 @@ fun MainScreenContent(
                             rotationDegrees = uiState.videoRotation, isMirrored = uiState.useFrontCamera
                         )
                     }
+
+                    val pose = uiState.currentPose
+                    val analysis = uiState.analysisResult
+
                     SkeletonOverlay(
-                        poseResult = uiState.currentPose,
-                        analysisResult = uiState.analysisResult,
+                        poseResult = pose,
+                        analysisResult = analysis,
                         transformationMatrix = matrix,
-                        modifier = Modifier.fillMaxSize(),
-                        getReusableBitmap = { w, h -> viewModel.getReusableBitmap(w, h) },
-                        onFrameCaptured = { viewModel.recordFrameToCache(it) }
+                        isCalibrationMode = uiState.isCalibrationMode,
+                        calibrationText = stringResource(R.string.label_calibration_guide),
+                        modifier = Modifier.fillMaxSize()
                     )
+
+
+                    // ROBUST CAPTURE LOGIC (TextureView based)
+                    if (uiState.appState == AppState.RECORDING) {
+                        val currentTextureView = textureViewRef
+                        if (currentTextureView != null) {
+                            SideEffect {
+                                // Important: capture with correct aspect ratio
+                                val isPortrait = (uiState.videoRotation == 90 || uiState.videoRotation == 270)
+                                val videoW = if (isPortrait) uiState.videoHeight else uiState.videoWidth
+                                val videoH = if (isPortrait) uiState.videoWidth else uiState.videoHeight
+
+                                // We use native video resolution for cache to ensure perfect ratio
+                                val bitmap = viewModel.getReusableBitmap(videoW, videoH)
+                                try {
+                                    currentTextureView.getBitmap(bitmap)
+
+                                    if (uiState.isAiEnabled) {
+                                        val canvas = Canvas(bitmap)
+                                        // Since we capture at video resolution, we need a matrix
+                                        // that maps normalized landmarks to this specific bitmap size
+                                        val captureMatrix = fr.bayral.archerymonitor.core.utils.MatrixUtils.getTransformationMatrix(
+                                            srcWidth = uiState.videoWidth, srcHeight = uiState.videoHeight,
+                                            viewWidth = videoW, viewHeight = videoH,
+                                            rotationDegrees = uiState.videoRotation, isMirrored = uiState.useFrontCamera
+                                        )
+                                        frameComposer.compose(canvas, pose, analysis, captureMatrix, false, null)
+                                    }
+                                    viewModel.recordFrameToCache(bitmap)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainScreen", "Capture failed", e)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
+        // Status Indicators
         Column(modifier = Modifier.fillMaxSize().padding(top = 80.dp, start = 32.dp)) {
             if (uiState.appState == AppState.BUFFERING) {
                 Text(stringResource(R.string.status_buffering), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineMedium)
@@ -297,37 +394,39 @@ fun MainScreenContent(
                 Text(stringResource(R.string.status_recording), color = Color.Red, style = MaterialTheme.typography.headlineMedium)
             }
 
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                Button(onClick = { expanded = true }) {
-                    Text(if (uiState.selectedModule == null) stringResource(R.string.label_none) else if (uiState.selectedModule.labelResId == 0) "General" else stringResource(uiState.selectedModule.labelResId))
-                }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.label_none), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(null); expanded = false })
-                    availableModules.forEach { module ->
-                        DropdownMenuItem(text = { Text(stringResource(module.labelResId), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(module); expanded = false })
+            if (uiState.appState == AppState.IDLE) {
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    Button(onClick = { expanded = true }) {
+                        Text(if (uiState.selectedModule == null) stringResource(R.string.label_none) else if (uiState.selectedModule.labelResId == 0) "General" else stringResource(uiState.selectedModule.labelResId))
                     }
-                }
-            }
-
-            if (uiState.isAiEnabled) {
-                Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    var latExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        FilledTonalButton(onClick = { latExpanded = true }) { Text(if (uiState.archerySettings.laterality == Laterality.RIGHT_HANDED) "R" else "L") }
-                        DropdownMenu(expanded = latExpanded, onDismissRequest = { latExpanded = false }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.label_right_handed)) }, onClick = { onSetLaterality(Laterality.RIGHT_HANDED); latExpanded = false })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.label_left_handed)) }, onClick = { onSetLaterality(Laterality.LEFT_HANDED); latExpanded = false })
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.label_none), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(null); expanded = false })
+                        availableModules.forEach { module ->
+                            DropdownMenuItem(text = { Text(stringResource(module.labelResId), color = MaterialTheme.colorScheme.onSurface) }, onClick = { onSelectModule(module); expanded = false })
                         }
                     }
+                }
 
-                    var bowExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        FilledTonalButton(onClick = { bowExpanded = true }) { Text(uiState.archerySettings.bowType.name) }
-                        DropdownMenu(expanded = bowExpanded, onDismissRequest = { bowExpanded = false }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_recurve)) }, onClick = { onSetBowType(BowType.RECURVE); bowExpanded = false })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_barebow)) }, onClick = { onSetBowType(BowType.BAREBOW); bowExpanded = false })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_compound)) }, onClick = { onSetBowType(BowType.COMPOUND); bowExpanded = false })
+                if (uiState.isAiEnabled) {
+                    Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        var latExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            FilledTonalButton(onClick = { latExpanded = true }) { Text(if (uiState.archerySettings.laterality == Laterality.RIGHT_HANDED) "R" else "L") }
+                            DropdownMenu(expanded = latExpanded, onDismissRequest = { latExpanded = false }) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_right_handed)) }, onClick = { onSetLaterality(Laterality.RIGHT_HANDED); latExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_left_handed)) }, onClick = { onSetLaterality(Laterality.LEFT_HANDED); latExpanded = false })
+                            }
+                        }
+
+                        var bowExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            FilledTonalButton(onClick = { bowExpanded = true }) { Text(uiState.archerySettings.bowType.name) }
+                            DropdownMenu(expanded = bowExpanded, onDismissRequest = { bowExpanded = false }) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_recurve)) }, onClick = { onSetBowType(BowType.RECURVE); bowExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_barebow)) }, onClick = { onSetBowType(BowType.BAREBOW); bowExpanded = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.label_bow_compound)) }, onClick = { onSetBowType(BowType.COMPOUND); bowExpanded = false })
+                            }
                         }
                     }
                 }
@@ -340,21 +439,52 @@ fun MainScreenContent(
             }
         }
 
-        Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(16.dp).background(Color.Black.copy(alpha = 0.5f)).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = stringResource(R.string.label_delay, uiState.delaySeconds.toInt()), color = Color.White, style = MaterialTheme.typography.bodyLarge)
-            Slider(value = uiState.delaySeconds, onValueChange = { onSetDelay(it) }, valueRange = 1f..30f, modifier = Modifier.fillMaxWidth())
+        // Bottom Controls
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.5f), shape = MaterialTheme.shapes.large)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (uiState.appState == AppState.IDLE) {
+                Text(text = stringResource(R.string.label_delay, uiState.delaySeconds.toInt()), color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                Slider(value = uiState.delaySeconds, onValueChange = { onSetDelay(it) }, valueRange = 1f..30f, modifier = Modifier.fillMaxWidth())
+            }
 
+            // Primary Action Row
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Button(onClick = { onToggleRecording() }, colors = ButtonDefaults.buttonColors(containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary)) {
+                Button(
+                    onClick = { onToggleRecording() },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (uiState.appState != AppState.IDLE) Color.Red else MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                ) {
                     Text(if (uiState.appState != AppState.IDLE) stringResource(R.string.btn_stop) else stringResource(R.string.btn_record))
                 }
-                
-                if (uiState.appState == AppState.RECORDING) {
-                    Button(onClick = { onEnterReplay() }) { Text(stringResource(R.string.btn_replay)) }
-                }
 
-                Button(onClick = { onToggleAi() }) { Text(if (uiState.isAiEnabled) stringResource(R.string.btn_ai_off) else stringResource(R.string.btn_ai_on)) }
-                Button(onClick = { onToggleCamera() }) { Text(if (uiState.useFrontCamera) stringResource(R.string.btn_camera_back) else stringResource(R.string.btn_camera_front)) }
+                if (uiState.appState == AppState.IDLE) {
+                    Button(onClick = { onToggleAi() }, modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                        Text(if (uiState.isAiEnabled) stringResource(R.string.btn_ai_off) else stringResource(R.string.btn_ai_on))
+                    }
+                    Button(onClick = { onToggleCamera() }, modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                        Text(if (uiState.useFrontCamera) stringResource(R.string.btn_camera_back) else stringResource(R.string.btn_camera_front))
+                    }
+                }
+            }
+
+            // Secondary Action Row (Replay)
+            if (uiState.appState == AppState.RECORDING) {
+                Button(
+                    onClick = { onEnterReplay() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text(stringResource(R.string.btn_replay))
+                }
             }
         }
     }
@@ -366,4 +496,45 @@ fun MainScreenPreview() {
     ArcheryMonitorTheme {
         Text("Preview requires MainViewModel injection")
     }
+}
+
+/**
+ * Saves a file to the public Downloads directory using MediaStore for better visibility and Android 10+ compliance.
+ */
+suspend fun saveVideoToPublicDownloads(context: Context, sourceFile: File): Boolean = withContext(Dispatchers.IO) {
+    if (!sourceFile.exists()) return@withContext false
+
+    val fileName = "archery_replay_${System.currentTimeMillis()}.mp4"
+    val contentValues = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+        put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MOVIES)
+        }
+    }
+
+    val resolver = context.contentResolver
+    val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+    uri?.let { targetUri ->
+        try {
+            resolver.openOutputStream(targetUri)?.use { outputStream ->
+                sourceFile.inputStream().use { inputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+
+            // Trigger a scan for the newly created file so it appears in Gallery immediately
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).absolutePath + File.separator + fileName),
+                arrayOf("video/mp4"),
+                null
+            )
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("MainScreen", "Failed to copy video to MediaStore", e)
+            false
+        }
+    } ?: false
 }

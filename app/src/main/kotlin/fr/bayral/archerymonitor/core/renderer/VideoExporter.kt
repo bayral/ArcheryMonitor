@@ -1,7 +1,6 @@
 package fr.bayral.archerymonitor.core.renderer
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Rect
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
@@ -49,8 +48,9 @@ class VideoExporter {
 
             val bufferInfo = MediaCodec.BufferInfo()
             val frameDurationUs = 1000000L / frameRate
+            var encodedFrameCount = 0L
 
-            for ((index, bitmap) in bitmaps.withIndex()) {
+            for (bitmap in bitmaps) {
                 // Render bitmap to surface
                 val canvas = inputSurface.lockCanvas(null)
                 canvas.drawBitmap(bitmap, null, Rect(0, 0, width, height), null)
@@ -59,9 +59,6 @@ class VideoExporter {
                 // Drain encoder
                 while (true) {
                     val encoderStatus = encoder.dequeueOutputBuffer(bufferInfo, 0)
-                    if (encoderStatus == MediaCodec.dequeueOutputBuffer(bufferInfo, 0)) {
-                        // Nothing to do
-                    }
                     if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                         break
                     } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
@@ -78,8 +75,10 @@ class VideoExporter {
 
                         if (bufferInfo.size != 0) {
                             if (!muxerStarted) throw RuntimeException("Muxer not started")
-                            bufferInfo.presentationTimeUs = index * frameDurationUs
+                            // Ensure linear presentation time starting from 0
+                            bufferInfo.presentationTimeUs = encodedFrameCount * frameDurationUs
                             muxer.writeSampleData(trackIndex, encodedData, bufferInfo)
+                            encodedFrameCount++
                         }
 
                         encoder.releaseOutputBuffer(encoderStatus, false)
@@ -100,7 +99,9 @@ class VideoExporter {
                 } else if (encoderStatus >= 0) {
                     val encodedData = encoder.getOutputBuffer(encoderStatus)!!
                     if (bufferInfo.size != 0) {
+                        bufferInfo.presentationTimeUs = encodedFrameCount * frameDurationUs
                         muxer.writeSampleData(trackIndex, encodedData, bufferInfo)
+                        encodedFrameCount++
                     }
                     encoder.releaseOutputBuffer(encoderStatus, false)
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) done = true

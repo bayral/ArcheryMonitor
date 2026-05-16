@@ -1,7 +1,6 @@
 package fr.bayral.archerymonitor
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -35,6 +34,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.AndroidEntryPoint
 import fr.bayral.archerymonitor.core.interfaces.AppState
 import fr.bayral.archerymonitor.ui.MainScreen
@@ -61,8 +61,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
 
         enableEdgeToEdge()
@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
             val lux = event.values[0]
             val layoutParams = window.attributes
-            
+
             // If ambient light is very high (outside, sun), force max brightness
             if (lux > 10000) { // Direct sunlight
                 layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
@@ -222,8 +222,9 @@ fun MainPreview() {
             onSelectModule = {},
             onSetLaterality = {},
             onSetBowType = {},
-            onShowTrophies = {},
-            onSurfaceCreated = {}
+            onEnterReplay = {},
+            onSurfaceCreated = {},
+            viewModel = viewModel()
         )
     }
 }
