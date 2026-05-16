@@ -1,9 +1,10 @@
 <resources>
+    <string name="app_name">Archery Monitor</string>
     <string name="status_buffering">● BUFFERING…</string>
     <string name="status_recording">● RECORDING / REPLAY</string>
     <string name="label_delay">Delay: %1$ds</string>
     <string name="btn_stop">STOP</string>
-    <string name="btn_record">RECORD</string>
+    <string name="btn_record">START</string>
     <string name="btn_ai_off">Turn AI OFF</string>
     <string name="btn_ai_on">Turn AI ON</string>
     <string name="btn_camera_back">Back</string>
@@ -20,4 +21,12 @@
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Compound</string>
     <string name="title_trophies">Trophy Room</string>
+    <string name="btn_replay">REPLAY</string>
+    <string name="btn_resume_live">LIVE</string>
+    <string name="btn_export">SAVE</string>
+    <string name="export_success">Video saved!</string>
+    <string name="export_failed">Export failed</string>
+    <string name="export_success_downloads">Video saved to Movies</string>
+    <string name="label_calibration_guide">CALIBRATION: Center archer on vertical line</string>
+    <string name="error_replay_empty">No frames recorded yet</string>
 </resources>

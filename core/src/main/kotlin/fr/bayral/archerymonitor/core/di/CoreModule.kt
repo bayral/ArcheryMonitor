@@ -24,4 +24,5 @@ object CoreModule {
     @Provides
     @Singleton
     fun provideSyncEngine(engine: SyncEngineImpl): ISyncEngine = engine
-}
+    }
+

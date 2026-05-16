@@ -1,5 +1,6 @@
 package fr.bayral.archerymonitor.ui
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -7,6 +8,8 @@ import fr.bayral.archerymonitor.core.interfaces.*
 import fr.bayral.archerymonitor.core.utils.OrientationMonitor
 import fr.bayral.archerymonitor.core.utils.PostureModuleFactory
 import fr.bayral.archerymonitor.core.utils.SettingsManager
+import fr.bayral.archerymonitor.core.renderer.VisualCache
+import fr.bayral.archerymonitor.core.renderer.VideoExporter
 import fr.bayral.archerymonitor.feature_camera.H264Decoder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -25,8 +28,217 @@ class MainViewModel @Inject constructor(
     private val settingsManager: SettingsManager,
     private val decoder: H264Decoder,
     private val moduleFactory: PostureModuleFactory,
-    private val orientationMonitor: OrientationMonitor
+    orientationMonitor: OrientationMonitor,
+    private val visualCache: VisualCache,
+    private val videoExporter: VideoExporter
 ) : ViewModel() {
+
+    fun getAvailableModules(): List<IPostureModule> = moduleFactory.getCompatibleModules(_uiState.value.archerySettings)
+
+    fun onStartCapture(lifecycleOwner: androidx.lifecycle.LifecycleOwner, surfaceProvider: androidx.camera.core.Preview.SurfaceProvider) {
+        if (_uiState.value.appState == AppState.RECORDING) {
+            _uiState.value = _uiState.value.copy(
+                appState = AppState.BUFFERING,
+                currentPose = null,
+                analysisResult = null
+            )
+            cameraProvider.prepareRecording()
+            cameraProvider.setRecording(true)
+        }
+
+        cameraProvider.startCapture(
+            lifecycleOwner = lifecycleOwner,
+            surfaceProvider = surfaceProvider,
+            onResolutionChanged = { w, h, rot ->
+                _uiState.value = _uiState.value.copy(
+                    videoWidth = w, 
+                    videoHeight = h,
+                    videoRotation = rot
+                )
+                if (_uiState.value.appState != AppState.IDLE) {
+                    currentSurface?.let { startDelayedPlayback(it) }
+                }
+            },
+            lowResAnalysis = { image, timestamp ->
+                if (_uiState.value.isAiEnabled && _uiState.value.appState != AppState.IDLE) {
+                    poseAnalyzer.analyze(image, timestamp)
+                }
+            },
+            useFrontCamera = _uiState.value.useFrontCamera
+        )
+
+        if (_uiState.value.appState != AppState.IDLE) {
+            currentSurface?.let { startDelayedPlayback(it) }
+        }
+    }
+
+    fun stopCapture() {
+        cameraProvider.stopCapture()
+        decoder.stop()
+    }
+
+    fun toggleRecording() {
+        val newState = if (_uiState.value.appState != AppState.IDLE) {
+            bufferingJob?.cancel()
+            decoder.stop()
+            cameraProvider.setRecording(false)
+            AppState.IDLE
+        } else {
+            cameraProvider.prepareRecording()
+            cameraProvider.setRecording(true)
+            AppState.BUFFERING
+        }
+        _uiState.value = _uiState.value.copy(
+            appState = newState,
+            currentPose = null,
+            analysisResult = null
+        )
+
+        if (newState == AppState.BUFFERING) {
+            currentSurface?.let { startDelayedPlayback(it) }
+        }
+    }
+
+    fun toggleAi() {
+        val newAiEnabled = !_uiState.value.isAiEnabled
+        if (newAiEnabled) {
+            syncEngine.clear()
+        }
+        _uiState.value = _uiState.value.copy(
+            isAiEnabled = newAiEnabled,
+            currentPose = null,
+            analysisResult = null
+        )
+    }
+
+    fun toggleCamera() {
+        val newUseFront = !_uiState.value.useFrontCamera
+        _uiState.value = _uiState.value.copy(useFrontCamera = newUseFront)
+        settingsManager.useFrontCamera = newUseFront
+    }
+
+    fun toggleCalibration() {
+        _uiState.value = _uiState.value.copy(isCalibrationMode = !_uiState.value.isCalibrationMode)
+    }
+
+    fun setDelay(seconds: Float) {
+        _uiState.value = _uiState.value.copy(delaySeconds = seconds)
+        settingsManager.recordingDelay = seconds
+        if (_uiState.value.appState == AppState.RECORDING) {
+            currentSurface?.let { startDelayedPlayback(it) }
+        }
+    }
+
+    fun selectModule(module: IPostureModule?) {
+        _uiState.value = _uiState.value.copy(selectedModule = module, analysisResult = null)
+        settingsManager.selectedModuleId = module?.let { it::class.java.simpleName }
+    }
+
+    fun setLaterality(laterality: Laterality) {
+        val newSettings = _uiState.value.archerySettings.copy(laterality = laterality)
+        settingsManager.laterality = laterality
+        
+        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
+        val currentModule = _uiState.value.selectedModule
+        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
+
+        _uiState.value = _uiState.value.copy(
+            archerySettings = newSettings,
+            selectedModule = newSelected
+        )
+    }
+
+    fun setBowType(bowType: BowType) {
+        val newSettings = _uiState.value.archerySettings.copy(bowType = bowType)
+        settingsManager.bowType = bowType
+
+        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
+        val currentModule = _uiState.value.selectedModule
+        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
+
+        _uiState.value = _uiState.value.copy(
+            archerySettings = newSettings,
+            selectedModule = newSelected
+        )
+    }
+
+    fun startDelayedPlayback(surface: android.view.Surface) {
+        currentSurface = surface
+        if (_uiState.value.appState == AppState.RECORDING || _uiState.value.appState == AppState.BUFFERING) {
+            val isPortrait = (_uiState.value.videoRotation == 90) || (_uiState.value.videoRotation == 270)
+            val decodeW = if (isPortrait) _uiState.value.videoHeight else _uiState.value.videoWidth
+            val decodeH = if (isPortrait) _uiState.value.videoWidth else _uiState.value.videoHeight
+
+            decoder.start(surface, decodeW, decodeH, _uiState.value.delaySeconds) {
+                onDecoderStarted()
+            }
+        }
+    }
+
+    fun onDecoderStarted() {
+        if (_uiState.value.appState == AppState.BUFFERING) {
+            bufferingJob?.cancel()
+            bufferingJob = viewModelScope.launch {
+                val waitTime = (_uiState.value.delaySeconds * 1000).toLong().coerceAtLeast(500L)
+                delay(waitTime)
+                if (_uiState.value.appState == AppState.BUFFERING) {
+                    _uiState.value = _uiState.value.copy(appState = AppState.RECORDING)
+                }
+            }
+        }
+    }
+
+    fun enterReplayMode(): Boolean {
+        if (visualCache.size > 0) {
+            _uiState.update { it.copy(appState = AppState.REPLAY) }
+            _replayIndex.value = (visualCache.size - 1).coerceAtLeast(0)
+            return true
+        }
+        return false
+    }
+
+    fun exitReplayMode() {
+        _uiState.update { it.copy(appState = AppState.RECORDING) }
+        visualCache.clear()
+    }
+
+    fun exportReplay(outputFile: java.io.File, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val bitmaps = mutableListOf<Bitmap>()
+            for (i in 0 until visualCache.size) {
+                visualCache.getFrameAt(i)?.let { bitmaps.add(it) }
+            }
+            
+            if (bitmaps.isEmpty()) {
+                onComplete(false)
+                return@launch
+            }
+
+            val success = videoExporter.export(
+                bitmaps = bitmaps,
+                outputFile = outputFile,
+                width = bitmaps[0].width,
+                height = bitmaps[0].height
+            )
+            onComplete(success)
+        }
+    }
+
+    fun recordFrameToCache(bitmap: Bitmap) {
+        if (_uiState.value.appState == AppState.RECORDING) {
+            visualCache.addFrame(bitmap)
+        }
+    }
+
+    fun getReusableBitmap(width: Int, height: Int): Bitmap {
+        return visualCache.getReusableBitmap(width, height)
+    }
+
+    fun getCacheSize(): Int = visualCache.size
+
+    fun setReplayIndex(index: Int) {
+        _replayIndex.value = index.coerceIn(0, (visualCache.size - 1).coerceAtLeast(0))
+    }
 
     private val _uiState = MutableStateFlow(
         MainUiState(
@@ -45,6 +257,13 @@ class MainViewModel @Inject constructor(
         }
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private val _replayIndex = MutableStateFlow(0)
+    val replayIndex: StateFlow<Int> = _replayIndex.asStateFlow()
+
+    val currentReplayFrame: StateFlow<Bitmap?> = _replayIndex
+        .map { index -> visualCache.getFrameAt(index) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val badgeDefinitions = listOf(
         Badge("PERFECT_1S", fr.bayral.archerymonitor.resources.R.string.badge_perfect_1s, 0.95f, 1),
@@ -128,158 +347,12 @@ class MainViewModel @Inject constructor(
     }
 
     private var currentSurface: android.view.Surface? = null
-
-    fun selectModule(module: IPostureModule?) {
-        _uiState.value = _uiState.value.copy(selectedModule = module, analysisResult = null)
-        settingsManager.selectedModuleId = module?.let { it::class.java.simpleName }
-    }
-
-    fun getAvailableModules(): List<IPostureModule> = moduleFactory.getCompatibleModules(_uiState.value.archerySettings)
-
-    // ... (rest of methods)
-
-    fun onStartCapture(lifecycleOwner: androidx.lifecycle.LifecycleOwner, surfaceProvider: androidx.camera.core.Preview.SurfaceProvider) {
-        if (_uiState.value.appState == AppState.RECORDING) {
-            _uiState.value = _uiState.value.copy(
-                appState = AppState.BUFFERING,
-                currentPose = null,
-                analysisResult = null
-            )
-            cameraProvider.prepareRecording()
-            cameraProvider.setRecording(true)
-        }
-
-        cameraProvider.startCapture(
-            lifecycleOwner = lifecycleOwner,
-            surfaceProvider = surfaceProvider,
-            onResolutionChanged = { w, h, rot ->
-                _uiState.value = _uiState.value.copy(
-                    videoWidth = w, 
-                    videoHeight = h,
-                    videoRotation = rot
-                )
-                if (_uiState.value.appState != AppState.IDLE) {
-                    currentSurface?.let { startDelayedPlayback(it) }
-                }
-            },
-            lowResAnalysis = { image, timestamp ->
-                if (_uiState.value.isAiEnabled && _uiState.value.appState != AppState.IDLE) {
-                    poseAnalyzer.analyze(image, timestamp)
-                }
-            },
-            useFrontCamera = _uiState.value.useFrontCamera
-        )
-
-        if (_uiState.value.appState != AppState.IDLE) {
-            currentSurface?.let { startDelayedPlayback(it) }
-        }
-    }
-
-    fun toggleRecording() {
-        val newState = if (_uiState.value.appState != AppState.IDLE) {
-            decoder.stop()
-            cameraProvider.setRecording(false)
-            AppState.IDLE
-        } else {
-            cameraProvider.prepareRecording()
-            cameraProvider.setRecording(true)
-            AppState.BUFFERING
-        }
-        _uiState.value = _uiState.value.copy(
-            appState = newState,
-            currentPose = null,
-            analysisResult = null
-        )
-
-        if (newState == AppState.BUFFERING) {
-            currentSurface?.let { startDelayedPlayback(it) }
-        }
-    }
+    private var bufferingJob: Job? = null
     
-    fun onDecoderStarted() {
-        if (_uiState.value.appState == AppState.BUFFERING) {
-            viewModelScope.launch {
-                val waitTime = (_uiState.value.delaySeconds * 1000).toLong().coerceAtLeast(500L)
-                delay(waitTime)
-                _uiState.value = _uiState.value.copy(appState = AppState.RECORDING)
-            }
-        }
-    }
-    fun startDelayedPlayback(surface: android.view.Surface) {
-        currentSurface = surface
-        if (_uiState.value.appState == AppState.RECORDING || _uiState.value.appState == AppState.BUFFERING) {
-            val isPortrait = (_uiState.value.videoRotation == 90) || (_uiState.value.videoRotation == 270)
-            val decodeW = if (isPortrait) _uiState.value.videoHeight else _uiState.value.videoWidth
-            val decodeH = if (isPortrait) _uiState.value.videoWidth else _uiState.value.videoHeight
-
-            decoder.start(surface, decodeW, decodeH, _uiState.value.delaySeconds) {
-                onDecoderStarted()
-            }
-        }
-    }
-
-    fun setDelay(seconds: Float) {
-        _uiState.value = _uiState.value.copy(delaySeconds = seconds)
-        settingsManager.recordingDelay = seconds
-        if (_uiState.value.appState == AppState.RECORDING) {
-            currentSurface?.let { startDelayedPlayback(it) }
-        }
-    }
-
-    fun toggleAi() {
-        val newAiEnabled = !_uiState.value.isAiEnabled
-        if (newAiEnabled) {
-            syncEngine.clear()
-        }
-        _uiState.value = _uiState.value.copy(
-            isAiEnabled = newAiEnabled,
-            currentPose = null,
-            analysisResult = null
-        )
-    }
-
-    fun toggleCamera() {
-        val newUseFront = !_uiState.value.useFrontCamera
-        _uiState.value = _uiState.value.copy(useFrontCamera = newUseFront)
-        settingsManager.useFrontCamera = newUseFront
-    }
-
-    fun setLaterality(laterality: Laterality) {
-        val newSettings = _uiState.value.archerySettings.copy(laterality = laterality)
-        settingsManager.laterality = laterality
-        
-        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
-        val currentModule = _uiState.value.selectedModule
-        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
-
-        _uiState.value = _uiState.value.copy(
-            archerySettings = newSettings,
-            selectedModule = newSelected
-        )
-    }
-
-    fun setBowType(bowType: BowType) {
-        val newSettings = _uiState.value.archerySettings.copy(bowType = bowType)
-        settingsManager.bowType = bowType
-
-        val compatibleModules = moduleFactory.getCompatibleModules(newSettings)
-        val currentModule = _uiState.value.selectedModule
-        val newSelected = if (compatibleModules.contains(currentModule)) currentModule else compatibleModules.firstOrNull()
-
-        _uiState.value = _uiState.value.copy(
-            archerySettings = newSettings,
-            selectedModule = newSelected
-        )
-    }
-
-    fun stopCapture() {
-        cameraProvider.stopCapture()
-        decoder.stop()
-    }
-
     override fun onCleared() {
         super.onCleared()
         stopCapture()
+        visualCache.clear()
     }
 }
 
@@ -294,5 +367,6 @@ data class MainUiState(
     val videoWidth: Int = 1280,
     val videoHeight: Int = 720,
     val videoRotation: Int = 0,
+    val isCalibrationMode: Boolean = false,
     val archerySettings: ArcherySettings = ArcherySettings()
 )

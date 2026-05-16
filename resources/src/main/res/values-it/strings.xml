@@ -7,8 +7,8 @@
     <string name="btn_record">AVVIA</string>
     <string name="btn_ai_off">Disattiva IA</string>
     <string name="btn_ai_on">Attiva IA</string>
-    <string name="btn_camera_back">Posteriore</string>
-    <string name="btn_camera_front">Frontale</string>
+    <string name="btn_camera_back">Cam. retro</string>
+    <string name="btn_camera_front">Cam. selfie</string>
     <string name="label_none">Nessuno</string>
     <string name="label_posture_general">Postura generale</string>
     <string name="badge_perfect_1s">Perfezione 1s</string>
@@ -21,4 +21,12 @@
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Compound</string>
     <string name="title_trophies">Sala dei Trofei</string>
+    <string name="btn_replay">REPLAY</string>
+    <string name="btn_resume_live">DIRETTA</string>
+    <string name="btn_export">SALVA</string>
+    <string name="export_success">Video salvato!</string>
+    <string name="export_failed">Esportazione fallita</string>
+    <string name="export_success_downloads">Video salvato in Video (Movies)</string>
+    <string name="label_calibration_guide">CALIBRAZIONE: Centra l\'arciere sulla linea verticale</string>
+    <string name="error_replay_empty">Nessuna immagine registrata</string>
 </resources>

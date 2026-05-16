@@ -4,11 +4,11 @@
     <string name="status_recording">● DIFFÉRÉ / REPLAY</string>
     <string name="label_delay">Délai: %1$ds</string>
     <string name="btn_stop">STOP</string>
-    <string name="btn_record">DÉMARRER</string>
+    <string name="btn_record">START</string>
     <string name="btn_ai_off">Désactiver l\'IA</string>
     <string name="btn_ai_on">Activer l\'IA</string>
-    <string name="btn_camera_back">Arrière</string>
-    <string name="btn_camera_front">Avant</string>
+    <string name="btn_camera_back">Cam. dos</string>
+    <string name="btn_camera_front">Cam. selfie</string>
     <string name="label_none">Aucun</string>
     <string name="label_posture_general">Posture générale</string>
     <string name="badge_perfect_1s">Perfection 1s</string>
@@ -21,4 +21,12 @@
     <string name="label_bow_barebow">Barebow</string>
     <string name="label_bow_compound">Poulies</string>
     <string name="title_trophies">Espace Trophées</string>
+    <string name="btn_replay">REPLAY</string>
+    <string name="btn_resume_live">DIRECT</string>
+    <string name="btn_export">ENREGISTRER</string>
+    <string name="export_success">Vidéo enregistrée !</string>
+    <string name="export_failed">Échec de l\'export</string>
+    <string name="export_success_downloads">Vidéo enregistrée dans Vidéos (Movies)</string>
+    <string name="label_calibration_guide">CALIBRAGE : Centrer l\'archer sur la ligne verticale</string>
+    <string name="error_replay_empty">Aucune image enregistrée pour le moment</string>
 </resources>
