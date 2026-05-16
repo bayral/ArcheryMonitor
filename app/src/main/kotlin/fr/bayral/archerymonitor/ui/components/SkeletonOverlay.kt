@@ -28,6 +28,7 @@ fun SkeletonOverlay(
     modifier: Modifier = Modifier,
     isCalibrationMode: Boolean = false,
     calibrationText: String? = null,
+    laterality: fr.bayral.archerymonitor.core.interfaces.Laterality = fr.bayral.archerymonitor.core.interfaces.Laterality.RIGHT_HANDED,
     getReusableBitmap: ((Int, Int) -> Bitmap)? = null,
     onFrameCaptured: ((Bitmap) -> Unit)? = null
 ) {
@@ -41,7 +42,8 @@ fun SkeletonOverlay(
                 analysisResult = analysisResult,
                 transformationMatrix = transformationMatrix,
                 isCalibrationMode = isCalibrationMode,
-                calibrationText = calibrationText
+                calibrationText = calibrationText,
+                laterality = laterality
             )
             
             // Capture for VisualCache using reusable bitmaps

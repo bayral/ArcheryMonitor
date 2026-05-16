@@ -347,6 +347,7 @@ fun MainScreenContent(
                         transformationMatrix = matrix,
                         isCalibrationMode = uiState.isCalibrationMode,
                         calibrationText = stringResource(R.string.label_calibration_guide),
+                        laterality = uiState.archerySettings.laterality,
                         modifier = Modifier.fillMaxSize()
                     )
 
@@ -506,7 +507,7 @@ fun MainScreenContent(
     }
 }
 
-@Preview(showBackground = true, device = "spec:width=1080px,height=2400px,dpi=440")
+@Preview(showBackground = true, device = "spec:width=1080px,height=2400px,dpi=440", apiLevel = 36)
 @Composable
 fun MainScreenPreview() {
     ArcheryMonitorTheme {

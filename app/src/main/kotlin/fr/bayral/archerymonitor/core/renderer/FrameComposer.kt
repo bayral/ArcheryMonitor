@@ -44,10 +44,11 @@ class FrameComposer {
         analysisResult: AnalysisResult?,
         transformationMatrix: Matrix,
         isCalibrationMode: Boolean = false,
-        calibrationText: String? = null
+        calibrationText: String? = null,
+        laterality: fr.bayral.archerymonitor.core.interfaces.Laterality = fr.bayral.archerymonitor.core.interfaces.Laterality.RIGHT_HANDED
     ) {
         if (isCalibrationMode) {
-            drawCalibrationGuide(canvas, calibrationText)
+            drawCalibrationGuide(canvas, calibrationText, laterality)
             return
         }
 
@@ -96,7 +97,7 @@ class FrameComposer {
         }
     }
 
-    private fun drawCalibrationGuide(canvas: Canvas, text: String?) {
+    private fun drawCalibrationGuide(canvas: Canvas, text: String?, laterality: fr.bayral.archerymonitor.core.interfaces.Laterality) {
         val w = canvas.width.toFloat()
         val h = canvas.height.toFloat()
         
@@ -122,9 +123,16 @@ class FrameComposer {
         canvas.drawLine(centerX - shoulderWidth / 2, centerY, centerX + shoulderWidth / 2, centerY, linePaint)
         canvas.drawLine(centerX, centerY, centerX, centerY + torsoHeight, linePaint)
         
-        // Arms
-        canvas.drawLine(centerX - shoulderWidth / 2, centerY, centerX - shoulderWidth * 1.2f, centerY, linePaint)
-        canvas.drawLine(centerX + shoulderWidth / 2, centerY, centerX + shoulderWidth * 0.8f, centerY - headRadius, linePaint)
+        // Arms - Adapted by laterality
+        val isRightHanded = laterality == fr.bayral.archerymonitor.core.interfaces.Laterality.RIGHT_HANDED
+        
+        // Extended arm (holding bow)
+        val extendedArmX = if (isRightHanded) centerX - shoulderWidth * 1.2f else centerX + shoulderWidth * 1.2f
+        canvas.drawLine(if (isRightHanded) centerX - shoulderWidth / 2 else centerX + shoulderWidth / 2, centerY, extendedArmX, centerY, linePaint)
+        
+        // Anchor arm (drawing string)
+        val anchorArmX = if (isRightHanded) centerX + shoulderWidth * 0.8f else centerX - shoulderWidth * 0.8f
+        canvas.drawLine(if (isRightHanded) centerX + shoulderWidth / 2 else centerX - shoulderWidth / 2, centerY, anchorArmX, centerY - headRadius, linePaint)
 
         // 3. Shoulder target zones
         linePaint.alpha = 180
