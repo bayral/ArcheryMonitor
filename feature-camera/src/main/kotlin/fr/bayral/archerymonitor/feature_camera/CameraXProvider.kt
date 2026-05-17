@@ -212,10 +212,11 @@ class CameraXProvider @Inject constructor(
     }
 
     companion object {
-        /** 
-         * AI skip factor: 2 means process every 2nd frame. 
-         * Reduces CPU load by 50% for AI while keeping video at full FPS.
+        /**
+         * AI skip factor: 3 means process every 3rd frame.
+         * Reduces CPU load by ~66% for AI analysis while keeping video at full FPS.
          */
-        private const val AI_ANALYSIS_SKIP_FACTOR = 2
-    }
-}
+        private const val AI_ANALYSIS_SKIP_FACTOR = 3
+        }
+        }
+

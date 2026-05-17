@@ -47,7 +47,15 @@ The remote events are consumed by the app, so you won't see system volume bars o
 - Android device running **Android 11 (API 30)** or higher.
 - Recommended: High-performance SoC for smooth AI inference (e.g., Pixel 6+, Galaxy S21+).
 
-### Installation
+## 📥 Installation
+
+### Option 1: APK Download (Recommended)
+You can download the latest pre-compiled APK directly from our GitHub releases:
+1. Navigate to the [Releases](https://github.com/bayral/ArcheryMonitor/releases) page.
+2. Download the latest `.apk` file.
+3. Install the APK on your device (you may need to allow "Install from unknown sources" in your Android settings).
+
+### Option 2: Local Build
 1. Clone the repository.
 2. Open the project in **Android Studio (Ladybug or newer)**.
 3. Build and run the `app` module on your device.
