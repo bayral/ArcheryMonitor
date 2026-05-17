@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Thème du SplashScreen -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Couleur de fond noire -->
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <!-- Thème à appliquer après le splash -->
+        <item name="postSplashScreenTheme">@style/Theme.ArcheryMonitor</item>
+    </style>
+
+    <!-- Thème de l'application -->
     <style name="Theme.ArcheryMonitor" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
