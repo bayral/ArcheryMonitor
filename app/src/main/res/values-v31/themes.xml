@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Thème du SplashScreen -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <!-- Couleur de fond -->
         <item name="windowSplashScreenBackground">@android:color/black</item>
-        <!-- Icône du splash -->
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <!-- Couleur de fond de l'icône (pour éviter la transparence sur certains OS) -->
         <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
-        <!-- Thème à appliquer après le splash -->
         <item name="postSplashScreenTheme">@style/Theme.ArcheryMonitor</item>
     </style>
-
-    <!-- Thème de l'application -->
-    <style name="Theme.ArcheryMonitor" parent="Theme.Material3.Light.NoActionBar" />
 </resources>

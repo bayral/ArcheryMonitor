@@ -14,8 +14,6 @@ class PostureModuleFactory @Inject constructor(
 ) {
     /** Returns only modules compatible with current archery settings. */
     fun getCompatibleModules(settings: ArcherySettings): List<IPostureModule> {
-        // Implementation logic for filtering based on settings.
-        // For now, return all available modules as they are all compatible.
-        return modules.toList()
+        return modules.filter { it.capabilities.supportedBowTypes.contains(settings.bowType) }
     }
 }

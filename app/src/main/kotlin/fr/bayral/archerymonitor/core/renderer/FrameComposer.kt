@@ -4,8 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import fr.bayral.archerymonitor.core.interfaces.AnalysisResult
-import fr.bayral.archerymonitor.core.interfaces.PoseResult
+import fr.bayral.archerymonitor.core.interfaces.*
 
 /**
  * Service responsible for drawing the final visual composition of a frame.
@@ -65,24 +64,71 @@ class FrameComposer {
             return Pair(mappedPoints[index * 2], mappedPoints[index * 2 + 1])
         }
 
-        // Draw connections
-        val connections = listOf(
-            Pair(11, 12), Pair(11, 13), Pair(13, 15), Pair(12, 14), Pair(14, 16),
-            Pair(11, 23), Pair(12, 24), Pair(23, 24),
-            Pair(23, 25), Pair(25, 27), Pair(27, 29), Pair(27, 31),
-            Pair(24, 26), Pair(26, 28), Pair(28, 30), Pair(28, 32)
-        )
+        // Draw connections (either custom segments from analysis or default skeleton)
+        val customSegments = analysisResult?.segments
+        if (customSegments != null && customSegments.isNotEmpty()) {
+            customSegments.forEach { segment ->
+                var x1 = 0f
+                var y1 = 0f
+                var x2 = 0f
+                var y2 = 0f
+                var startValid = false
+                var endValid = false
 
-        connections.forEach { (start, end) ->
-            if (start < poseResult.landmarks.size && end < poseResult.landmarks.size) {
-                val (x1, y1) = getCoords(start)
-                val (x2, y2) = getCoords(end)
-                
-                val color = analysisResult?.jointColors?.get(start)?.toInt() ?: Color.YELLOW
+                val startCustom = segment.startCustom
+                if (segment.startLandmarkIndex >= 0 && segment.startLandmarkIndex < poseResult.landmarks.size) {
+                    val coords = getCoords(segment.startLandmarkIndex)
+                    x1 = coords.first
+                    y1 = coords.second
+                    startValid = true
+                } else if (startCustom != null) {
+                    val pts = floatArrayOf(startCustom.x, startCustom.y)
+                    transformationMatrix.mapPoints(pts)
+                    x1 = pts[0]
+                    y1 = pts[1]
+                    startValid = true
+                }
 
-                linePaint.color = color
-                canvas.drawLine(x1, y1, x2, y2, outlinePaint)
-                canvas.drawLine(x1, y1, x2, y2, linePaint)
+                val endCustom = segment.endCustom
+                if (segment.endLandmarkIndex >= 0 && segment.endLandmarkIndex < poseResult.landmarks.size) {
+                    val coords = getCoords(segment.endLandmarkIndex)
+                    x2 = coords.first
+                    y2 = coords.second
+                    endValid = true
+                } else if (endCustom != null) {
+                    val pts = floatArrayOf(endCustom.x, endCustom.y)
+                    transformationMatrix.mapPoints(pts)
+                    x2 = pts[0]
+                    y2 = pts[1]
+                    endValid = true
+                }
+
+                if (startValid && endValid) {
+                    val color = segment.color.toInt()
+                    linePaint.color = color
+                    canvas.drawLine(x1, y1, x2, y2, outlinePaint)
+                    canvas.drawLine(x1, y1, x2, y2, linePaint)
+                }
+            }
+        } else {
+            val connections = listOf(
+                Pair(11, 12), Pair(11, 13), Pair(13, 15), Pair(12, 14), Pair(14, 16),
+                Pair(11, 23), Pair(12, 24), Pair(23, 24),
+                Pair(23, 25), Pair(25, 27), Pair(27, 29), Pair(27, 31),
+                Pair(24, 26), Pair(26, 28), Pair(28, 30), Pair(28, 32)
+            )
+
+            connections.forEach { (start, end) ->
+                if (start < poseResult.landmarks.size && end < poseResult.landmarks.size) {
+                    val (x1, y1) = getCoords(start)
+                    val (x2, y2) = getCoords(end)
+                    
+                    val color = analysisResult?.jointColors?.get(start)?.toInt() ?: Color.YELLOW
+
+                    linePaint.color = color
+                    canvas.drawLine(x1, y1, x2, y2, outlinePaint)
+                    canvas.drawLine(x1, y1, x2, y2, linePaint)
+                }
             }
         }
 

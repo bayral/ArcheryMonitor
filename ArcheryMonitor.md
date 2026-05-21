@@ -28,7 +28,7 @@ To enhance the archer's workflow, the application supports Bluetooth camera remo
 - **Circular Buffer:** `mmap` circular buffer for zero-copy 30s video storage.
 - **Unified Clock:** `SystemClock.elapsedRealtimeNanos` for AI-Video timestamp synchronization.
 - **Efficiency & Robustness:** 
-    - **Frame Skipping:** AI analysis processes 1 frame out of 2.
+    - **Frame Skipping:** AI analysis processes 1 frame out of 3.
     - **Resolution:** Input images are resized to **640px** width for optimal landmark detection.
     - **Optimized Conversion:** Manual YUV to ARGB conversion.
     - **Tilt Compensation:** Automatic rotation matrix applied to landmarks based on accelerometer (Roll).

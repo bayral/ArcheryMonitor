@@ -69,12 +69,20 @@ class CircularBufferManager @Inject constructor(
         synchronized(this) {
             // Check if we need to wrap around to the beginning of the file
             if ((buffer.position() + info.size) > bufferSize) {
-                Log.d("CircularBufferManager", "Buffer wrap around! Clearing ${packets.size} packets.")
+                Log.d("CircularBufferManager", "Buffer wrap around! Resetting position to 0.")
                 buffer.position(0)
-                packets.clear()
             }
 
             val offset = buffer.position()
+            val endOffset = offset + info.size
+
+            // Discard any packets that overlap with the written range [offset, endOffset]
+            packets.removeAll { packet ->
+                val packetStart = packet.offset
+                val packetEnd = packet.offset + packet.size
+                maxOf(offset, packetStart) < minOf(endOffset, packetEnd)
+            }
+
             data.position(info.offset)
             data.limit(info.offset + info.size)
             
